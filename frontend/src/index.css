@@ -1,0 +1,126 @@
+@import 'tailwindcss';
+
+/* Design system: white surfaces, blue for action, green for success.
+   Type is carried over from the Livinwalls brand sheet — Archivo for display,
+   Inter for body, IBM Plex Mono for figures.
+
+   Red appears in exactly one role: something failed. It is never used for
+   headings, buttons, or decoration, so a red mark on this page always means
+   the same thing. */
+@theme {
+  --font-display: 'Archivo', system-ui, sans-serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* The page sits a step darker than the cards so panels have a visible edge. */
+  --color-canvas: #eef3f9;
+  --color-surface: #ffffff;
+  --color-raised: #f2f7fd; /* card headers, inset panels */
+  --color-line: #d3e0ee;
+  --color-line-strong: #b3c7dc;
+
+  /* The conversation gets its own tint so the chat never reads as just
+     another white panel. */
+  --color-chat: #f4f9ff;
+  --color-chat-line: #cfe2f6;
+
+  --color-ink: #16233a; /* 14:1 on white */
+  --color-ink-deep: #0d1728;
+  --color-ink-muted: #4a5a72; /* 7.6:1 */
+  --color-ink-faint: #6b7c95; /* 4.7:1 — the floor for readable text */
+
+  /* Blue carries every interactive affordance. */
+  --color-brand: #1d4ed8; /* 7.5:1 on white */
+  --color-brand-strong: #1e3a8a;
+  --color-brand-soft: #e8effc;
+  --color-brand-dim: #a9c2f0;
+
+  /* Green means one thing: this passed. */
+  --color-ok: #047857; /* 5.3:1 */
+  --color-ok-soft: #e3f5ee;
+
+  /* Amber means "pay attention": edge cases, unscorable metrics, warnings.
+     Kept distinct from green so a caution never reads as a pass. */
+  --color-accent: #b45309;
+  --color-warn: #b45309;
+  --color-warn-soft: #fdf3e7;
+  --color-bad: #c2273f; /* failure only */
+  --color-bad-soft: #fdecef;
+}
+
+:root {
+  color-scheme: only light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  background-color: var(--color-canvas);
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  /* 16px base. The previous 15px pushed every derived size down a step and
+     left the dense table text uncomfortably small to read across a room. */
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+.display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Figures line up in tables, KPI tiles, and prompt blocks. */
+.tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Small uppercase label, straight from the Livinwalls type system. */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-ink-faint);
+}
+
+/* Focus is always visible — never remove the ring. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-canvas);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

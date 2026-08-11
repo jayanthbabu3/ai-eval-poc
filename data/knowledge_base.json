@@ -1,0 +1,90 @@
+{
+  "version": "1.0.0",
+  "source": "local-json",
+  "documents": [
+    {
+      "id": "KB-001",
+      "title": "VPN access request and setup",
+      "category": "Network",
+      "tags": ["vpn", "remote", "access", "globalprotect"],
+      "content": "To request VPN access, raise a ticket in the IT portal under Network > VPN Access. Approval is required from your line manager and is typically granted within 1 business day. Once approved, install the GlobalProtect client from the Company Software Center, sign in with your corporate email, and complete MFA. VPN access is reviewed every 90 days and revoked automatically if unused for 60 days."
+    },
+    {
+      "id": "KB-002",
+      "title": "Password reset self-service",
+      "category": "Identity",
+      "tags": ["password", "reset", "sso", "account", "locked"],
+      "content": "Reset your corporate password at the self-service portal password.company.internal. You must have MFA enrolled. Passwords expire every 90 days, must be at least 14 characters, and cannot reuse the last 10 passwords. After 5 failed attempts the account locks for 15 minutes. IT staff never ask for your password over phone, chat, or email."
+    },
+    {
+      "id": "KB-003",
+      "title": "Multi-factor authentication enrolment",
+      "category": "Identity",
+      "tags": ["mfa", "2fa", "authenticator", "security"],
+      "content": "All employees must enrol in MFA within 3 days of joining. Use the Microsoft Authenticator app as the primary factor and register a backup phone number. Hardware tokens are issued only for privileged admin accounts. If you lose your device, contact the Service Desk to have MFA reset after identity verification with your manager."
+    },
+    {
+      "id": "KB-004",
+      "title": "Laptop encryption and compliance",
+      "category": "Endpoint",
+      "tags": ["encryption", "bitlocker", "filevault", "compliance", "laptop"],
+      "content": "All company laptops must have full-disk encryption enabled: BitLocker on Windows and FileVault on macOS. Encryption status is reported by the endpoint agent every 4 hours. Non-compliant devices lose network access after 7 days. Recovery keys are escrowed in the corporate MDM and can only be released by the Endpoint team after manager approval."
+    },
+    {
+      "id": "KB-005",
+      "title": "Corporate Wi-Fi and guest network",
+      "category": "Network",
+      "tags": ["wifi", "wireless", "guest", "network"],
+      "content": "Connect to the CORP-SECURE SSID using your corporate credentials and device certificate. Personal devices are not permitted on CORP-SECURE and must use CORP-GUEST, which is internet-only and rate limited to 10 Mbps. Guest vouchers are valid for 24 hours and are issued by reception or any manager through the IT portal."
+    },
+    {
+      "id": "KB-006",
+      "title": "Mailbox quota and archiving",
+      "category": "Collaboration",
+      "tags": ["email", "mailbox", "quota", "archive", "outlook"],
+      "content": "Standard mailboxes are limited to 50 GB with an additional 100 GB online archive. At 90 percent usage you receive a warning; at 100 percent sending is blocked while receiving continues for 7 days. Items older than 2 years move to the online archive automatically. Quota increases require a business justification approved by your department head."
+    },
+    {
+      "id": "KB-007",
+      "title": "Software installation and approved catalogue",
+      "category": "Endpoint",
+      "tags": ["software", "install", "admin rights", "catalogue"],
+      "content": "Install approved applications yourself from the Company Software Center without admin rights. Software outside the catalogue requires a Software Request ticket including business justification, licence details, and a security review. Local admin rights are granted only as time-bound elevation for a maximum of 8 hours through the Privilege Manager tool."
+    },
+    {
+      "id": "KB-008",
+      "title": "Printer setup and troubleshooting",
+      "category": "Workplace",
+      "tags": ["printer", "print", "scan", "queue"],
+      "content": "Add printers from the Devices portal by selecting your floor and office. Print jobs are held in a secure queue for 12 hours and released by tapping your badge at any device. If a job fails, clear the local queue, confirm you are on the corporate network or VPN, and re-submit. Persistent failures should be raised as a Workplace ticket with the printer asset tag."
+    },
+    {
+      "id": "KB-009",
+      "title": "Incident severity and response targets",
+      "category": "Service Management",
+      "tags": ["incident", "severity", "sla", "priority", "outage"],
+      "content": "Severity 1 covers a full outage of a business-critical service with a 15 minute response and 4 hour resolution target. Severity 2 is major degradation affecting many users, with 30 minute response and 8 hour resolution. Severity 3 is a single-user issue with a 4 hour response and 3 business day resolution. Severity 4 is a request with a 1 business day response and 5 business day target."
+    },
+    {
+      "id": "KB-010",
+      "title": "Employee offboarding and account removal",
+      "category": "Identity",
+      "tags": ["offboarding", "leaver", "deprovision", "access"],
+      "content": "HR triggers offboarding at least 3 business days before the last working day. Accounts are disabled at 17:00 on the final day, mailboxes are converted to shared and retained for 90 days, and issued hardware must be returned within 5 business days. Manager access to the leaver's data requires an approved Data Access request logged for audit."
+    },
+    {
+      "id": "KB-011",
+      "title": "Phishing and suspicious email reporting",
+      "category": "Security",
+      "tags": ["phishing", "suspicious", "report", "security", "email"],
+      "content": "Report suspicious emails using the Report Phishing button in Outlook, which forwards the message to the Security Operations Centre and removes it from your inbox. Never forward a suspicious email manually and never enter credentials on a page reached from an email link. If you have already entered credentials, change your password immediately and contact the SOC hotline."
+    },
+    {
+      "id": "KB-012",
+      "title": "New starter hardware provisioning",
+      "category": "Endpoint",
+      "tags": ["onboarding", "hardware", "laptop", "new starter"],
+      "content": "Hardware is ordered once HR confirms the start date, with a standard lead time of 5 business days. The default build is a 14 inch laptop with 32 GB RAM; engineering roles may request a 64 GB configuration with manager approval. Devices are shipped pre-enrolled in MDM and the new starter completes setup with their temporary credentials and immediate MFA enrolment."
+    }
+  ]
+}

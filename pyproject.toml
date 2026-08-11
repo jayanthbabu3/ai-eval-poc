@@ -1,0 +1,15 @@
+[project]
+name = "ai-eval-poc"
+version = "1.0.0"
+description = "Enterprise-style AI evaluation POC for an IT knowledge assistant"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
+# `TestCase` is a domain model, not a pytest class — stop pytest trying to collect it.
+python_classes = ["Test*Case*Suite"]
+
+[tool.coverage.run]
+source = ["src/eval_poc"]
