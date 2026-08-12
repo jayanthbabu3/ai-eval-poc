@@ -1,7 +1,15 @@
 import type { ReactNode } from 'react'
 import { Card } from '../Primitives'
 import { FlowDiagram } from '../guide/FlowDiagram'
-import { GLOSSARY, METHODS, METRICS, TOOLS } from '../guide/content'
+import {
+  DECISIONS,
+  DEEPEVAL_TRADEOFFS,
+  GLOSSARY,
+  METHODS,
+  METRICS,
+  TOOLS,
+  WHY_DEEPEVAL,
+} from '../guide/content'
 
 const SECTIONS = [
   { id: 'what', label: 'What is AI evaluation?' },
@@ -190,25 +198,106 @@ export function GuideTab() {
           title="Tools and libraries"
           lead="You do not have to build this from scratch — but you do have to pick."
         >
-          <Table head={['Tool', 'What it is for']}>
-            {TOOLS.map((row) => (
-              <tr key={row.name} className="border-t border-line align-top">
-                <td className="whitespace-nowrap px-3 py-2 font-medium text-ink">
-                  {row.name}
-                  {row.used && (
-                    <span className="ml-2 rounded bg-ok-soft px-1.5 py-0.5 text-[12px] font-semibold text-ok">
-                      used here
-                    </span>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-ink-muted">{row.what}</td>
+          <p>
+            There are a dozen credible options and they do not compete so much as cover
+            different jobs. The quickest way to choose is to start from what worries you:
+          </p>
+
+          <Table head={['What you are worried about', 'What to reach for']}>
+            {DECISIONS.map((row) => (
+              <tr key={row.worry} className="border-t border-line align-top">
+                <td className="px-3 py-2 font-medium text-ink">{row.worry}</td>
+                <td className="px-3 py-2 text-ink-muted">{row.reach}</td>
               </tr>
             ))}
           </Table>
+
+          <h3 className="pt-2 text-[16px] font-semibold text-ink">Each tool in detail</h3>
+
+          <div className="space-y-2">
+            {TOOLS.map((tool) => (
+              <article
+                key={tool.name}
+                className={`rounded-lg border p-3 ${
+                  tool.used ? 'border-ok/40 bg-ok-soft' : 'border-line'
+                }`}
+              >
+                <header className="flex flex-wrap items-baseline gap-2">
+                  <h4 className="text-[15px] font-semibold text-ink">{tool.name}</h4>
+                  <span className="rounded bg-raised px-1.5 py-0.5 text-[12px] text-ink-muted ring-1 ring-line">
+                    {tool.kind}
+                  </span>
+                  {tool.used && (
+                    <span className="rounded bg-ok px-1.5 py-0.5 text-[12px] font-semibold text-white">
+                      used in this project
+                    </span>
+                  )}
+                </header>
+
+                <p className="mt-1.5 text-[14px] text-ink">{tool.whatItIs}</p>
+
+                <dl className="mt-2 grid gap-x-4 gap-y-1.5 sm:grid-cols-3">
+                  <div>
+                    <dt className="text-[12px] font-semibold uppercase tracking-wide text-ink-faint">
+                      Use it when
+                    </dt>
+                    <dd className="text-[13px] text-ink-muted">{tool.useWhen}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[12px] font-semibold uppercase tracking-wide text-ok">
+                      What you gain
+                    </dt>
+                    <dd className="text-[13px] text-ink-muted">{tool.benefit}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[12px] font-semibold uppercase tracking-wide text-warn">
+                      Watch out for
+                    </dt>
+                    <dd className="text-[13px] text-ink-muted">{tool.watchOut}</dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
+
+          <h3 className="pt-2 text-[16px] font-semibold text-ink">
+            Why this project uses DeepEval
+          </h3>
+          <ol className="space-y-2">
+            {WHY_DEEPEVAL.map((entry, index) => (
+              <li key={entry.reason} className="rounded-md border border-line p-3">
+                <p className="text-[14px] font-semibold text-ink">
+                  <span className="tabular mr-1.5 text-brand">{index + 1}.</span>
+                  {entry.reason}
+                </p>
+                <p className="mt-0.5 text-[14px] text-ink-muted">{entry.detail}</p>
+              </li>
+            ))}
+          </ol>
+
+          <div className="rounded-md border border-warn/40 bg-warn-soft p-3">
+            <p className="text-[14px] font-semibold text-warn">
+              What we gave up by choosing it
+            </p>
+            <ul className="mt-1.5 ml-5 list-disc space-y-1">
+              {DEEPEVAL_TRADEOFFS.map((line) => (
+                <li key={line} className="text-[14px] text-ink-muted">
+                  {line}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-[14px] text-ink-muted">
+              None of these were dealbreakers for a POC, and the last one is worth saying out
+              loud in any review: <strong>the judge is a model, so its score is an informed
+              opinion, not a fact.</strong> That is exactly why rule checks and a human sit
+              either side of it.
+            </p>
+          </div>
+
           <p>
-            One thing worth knowing: most of these tools use an LLM to grade another LLM. That
-            is normal and it works well — but the grader is a model too, so its score is an
-            informed opinion, not a fact. That is why rule checks and a human still matter.
+            A real deployment usually ends up with two or three of these, not one: a library
+            like DeepEval for the test suite, a hosted platform for live traffic, and a
+            guardrail in front of the model in production.
           </p>
         </Section>
 

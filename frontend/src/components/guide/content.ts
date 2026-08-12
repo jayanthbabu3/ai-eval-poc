@@ -82,51 +82,196 @@ export const METRICS: MetricRow[] = [
 
 export interface ToolRow {
   name: string
-  what: string
+  kind: string
+  whatItIs: string
+  useWhen: string
+  benefit: string
+  watchOut: string
   used: boolean
 }
 
 export const TOOLS: ToolRow[] = [
   {
     name: 'DeepEval',
-    what: 'Open-source library that scores answers using an LLM judge. Works like pytest, ships ~40 ready-made metrics. This is what this project uses.',
+    kind: 'Python library',
+    whatItIs:
+      'Runs an LLM judge against ready-made metrics. Written like pytest, so evaluations are just tests you can run in CI.',
+    useWhen:
+      'You have a Python codebase and want scored, explainable answers without writing your own judge prompts.',
+    benefit:
+      'About 40 metrics out of the box, each returning a score AND a written reason. You can plug in any model as the judge.',
+    watchOut:
+      'Heavy dependency tree — it pins you below Python 3.13. Each metric costs model calls, so a full run is not free.',
     used: true,
   },
   {
     name: 'RAGAS',
-    what: 'Open-source, focused on RAG systems. Strong at measuring whether retrieval found the right documents.',
+    kind: 'Python library',
+    whatItIs:
+      'Evaluation built specifically for retrieval-augmented systems, with strong metrics for the search step.',
+    useWhen:
+      'Your main worry is whether the search found the right documents — not whether the model wrote well.',
+    benefit:
+      'Context precision and recall are its speciality. A bad RAG answer usually starts with bad retrieval, and this measures that directly.',
+    watchOut:
+      'Narrower than DeepEval. If you also need tone, safety, or custom criteria you will end up adding a second tool.',
     used: false,
   },
   {
     name: 'promptfoo',
-    what: 'Command-line tool. You describe test cases in a YAML file and it compares prompts and models side by side. Also does red-teaming.',
+    kind: 'Command-line tool',
+    whatItIs:
+      'You describe test cases in a YAML file and it runs them across prompts and models, printing a comparison table.',
+    useWhen:
+      'You want to try five prompt variants or three models against the same questions and see which wins — without writing code.',
+    benefit:
+      'Fastest way to A/B prompts. No Python needed, and it has a solid built-in red-teaming mode for attack testing.',
+    watchOut:
+      'Config-file driven, so complex custom logic is awkward. Less natural to embed inside an existing application.',
     used: false,
   },
   {
     name: 'Langfuse / LangSmith',
-    what: 'Hosted platforms that record every call your app makes to a model, then let you score those real conversations.',
+    kind: 'Hosted platform',
+    whatItIs:
+      'Records every call your live app makes to a model, then lets you score those real conversations.',
+    useWhen:
+      'You are already in production and want to know how the assistant performs on real user questions, not a fixed test set.',
+    benefit:
+      'Catches what a curated test set never will — the questions you did not think to write. Also gives cost and latency dashboards.',
+    watchOut:
+      'Your prompts and user data leave your network unless you self-host. Usually needs an account and a paid plan at volume.',
     used: false,
   },
   {
     name: 'Arize Phoenix',
-    what: 'Open-source tracing and evaluation you can run yourself. Good for seeing what happened inside a request.',
+    kind: 'Open-source, self-hosted',
+    whatItIs:
+      'Tracing and evaluation you run on your own machine. Shows what happened at each step inside a request.',
+    useWhen:
+      'You need to debug a specific bad answer — which documents were retrieved, what prompt was sent, where it went wrong.',
+    benefit:
+      'Production-style observability without sending anything to a third party. Good middle ground for regulated environments.',
+    watchOut:
+      'It is a debugging tool first, a scoring tool second. Not a replacement for a proper test suite.',
     used: false,
   },
   {
     name: 'Giskard',
-    what: 'Scans an AI app for weaknesses — bias, made-up facts, prompt injection — and writes a report.',
+    kind: 'Scanner',
+    whatItIs:
+      'Points itself at your AI app, probes it for weaknesses, and writes a report of what it found.',
+    useWhen:
+      'Before a launch or a security review, when you want an independent sweep for bias, hallucination and prompt injection.',
+    benefit:
+      'Finds problems you did not think to test for. It generates the attacks itself rather than making you write them.',
+    watchOut:
+      'A point-in-time audit, not something you run on every commit. Findings still need a human to triage.',
     used: false,
   },
   {
     name: 'MLflow / Weights & Biases',
-    what: 'General machine-learning platforms that added LLM evaluation. Useful if your team already uses them.',
+    kind: 'ML platform',
+    whatItIs:
+      'General machine-learning platforms that added LLM evaluation alongside their existing experiment tracking.',
+    useWhen:
+      'Your team already runs one of them for other models and you want evaluation results in the same place.',
+    benefit:
+      'One dashboard for everything, and run history you keep for free — useful for showing improvement over months.',
+    watchOut:
+      'Their LLM-specific metrics are less mature than the dedicated tools. Not worth adopting for this alone.',
     used: false,
   },
   {
     name: 'Guardrails AI / NeMo Guardrails',
-    what: 'Different job: these block a bad answer live, in production, rather than scoring it beforehand.',
+    kind: 'Runtime guard',
+    whatItIs:
+      'Sits in front of the model in production and blocks or rewrites a bad answer before the user sees it.',
+    useWhen:
+      'Always, eventually — but alongside evaluation, never instead of it.',
+    benefit:
+      'Protects real users in real time. Evaluation tells you the assistant leaks credentials; a guardrail stops it happening.',
+    watchOut:
+      'A different job entirely. It cannot tell you whether your assistant is any good, only stop the worst outputs.',
     used: false,
   },
+]
+
+export interface DecisionRow {
+  worry: string
+  reach: string
+}
+
+/** The short answer to "which one should I use?" */
+export const DECISIONS: DecisionRow[] = [
+  {
+    worry: 'Is the answer correct and complete?',
+    reach: 'DeepEval — custom criteria plus ready-made metrics, with written reasons',
+  },
+  {
+    worry: 'Did the search find the right documents?',
+    reach: 'RAGAS — context precision and recall are what it does best',
+  },
+  {
+    worry: 'Which prompt or model is better?',
+    reach: 'promptfoo — a YAML file and one command gives you a comparison table',
+  },
+  {
+    worry: 'How is it doing with real users right now?',
+    reach: 'Langfuse or LangSmith — they score live traffic, not a test set',
+  },
+  {
+    worry: 'Why did this one answer go wrong?',
+    reach: 'Arize Phoenix — step-by-step tracing inside the request',
+  },
+  {
+    worry: 'Can someone attack or trick it?',
+    reach: 'Giskard to find the holes, promptfoo red-teaming to test them repeatedly',
+  },
+  {
+    worry: 'How do I stop a bad answer reaching a user?',
+    reach: 'Guardrails AI or NeMo Guardrails — blocking at runtime, not scoring',
+  },
+]
+
+export interface ChoiceReason {
+  reason: string
+  detail: string
+}
+
+export const WHY_DEEPEVAL: ChoiceReason[] = [
+  {
+    reason: 'It let us use Groq as the judge',
+    detail:
+      'DeepEval defaults to OpenAI, but exposes a base class you can implement. We wrapped Groq in about 100 lines, so the whole project needs one API key instead of two.',
+  },
+  {
+    reason: 'Every score comes with a written reason',
+    detail:
+      'A bare number is useless in a demo. DeepEval returns why it scored what it did, which is what you see in the judge panel.',
+  },
+  {
+    reason: 'The metrics we needed already existed',
+    detail:
+      'Faithfulness and answer relevancy work with no reference answer. GEval let us define correctness and completeness in plain English rather than writing judge prompts.',
+  },
+  {
+    reason: 'It runs like pytest',
+    detail:
+      'Evaluations are ordinary Python tests, so they run locally and in CI with no account, no dashboard, and no data leaving the machine.',
+  },
+  {
+    reason: 'Nothing is hosted',
+    detail:
+      'Important for a POC that may handle internal IT policy. There is telemetry, which this project turns off explicitly.',
+  },
+]
+
+export const DEEPEVAL_TRADEOFFS: string[] = [
+  'Heavy dependencies — it pins the project below Python 3.13, which is why setup specifies 3.12.',
+  'Each metric is one or more model calls, so a full suite run costs real tokens and hits rate limits.',
+  'Scores vary between runs. We saw the same correct answer score 1.00 once and 0.30 another time.',
+  'Weaker on retrieval metrics than RAGAS. If search quality were the main worry, that would be the better pick.',
 ]
 
 export interface GlossaryRow {
