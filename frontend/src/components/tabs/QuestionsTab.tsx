@@ -4,35 +4,34 @@ import { ChevronIcon } from '../Icons'
 import { CATEGORIES, QUESTIONS, type QA } from '../qa/content'
 
 /**
- * Anticipated questions with answers, searchable.
+ * An explanation of AI evaluation, in question form, searchable.
  *
- * Built for use *during* a demo: if someone asks something unexpected, you can
- * type two words and read the answer off the screen. Hence search over the
- * answer text too, not just the question.
+ * Answers render as prose rather than bullet lists: someone reading to
+ * understand the subject needs the reasoning joined up, not keywords they have
+ * to assemble themselves. Measured column width keeps long text readable.
  */
 function Answer({ entry }: { entry: QA }) {
   return (
-    <div className="border-t border-line px-4 py-3">
-      <p className="text-[15px] leading-relaxed text-ink">
-        <span className="font-semibold">Short answer: </span>
-        {entry.short}
-      </p>
+    <div className="border-t border-line bg-surface px-4 py-4">
+      <div className="max-w-[75ch] space-y-3">
+        {entry.answer.map((paragraph, index) => (
+          <p key={index} className="text-[15px] leading-[1.7] text-ink">
+            {paragraph}
+          </p>
+        ))}
 
-      {entry.detail && (
-        <ul className="mt-2 ml-5 list-disc space-y-1.5">
-          {entry.detail.map((line) => (
-            <li key={line} className="text-[14px] leading-relaxed text-ink-muted">
-              {line}
-            </li>
-          ))}
-        </ul>
-      )}
+        {entry.example && (
+          <pre className="tabular overflow-x-auto rounded-md border border-line bg-canvas p-3 text-[13px] leading-relaxed text-ink">
+            {entry.example}
+          </pre>
+        )}
 
-      {entry.showThem && (
-        <p className="mt-2.5 rounded-md border border-brand/30 bg-brand-soft px-2.5 py-2 text-[13px] text-brand">
-          <strong>Show them:</strong> {entry.showThem}
-        </p>
-      )}
+        {entry.showThem && (
+          <p className="rounded-md border border-brand/30 bg-brand-soft px-3 py-2 text-[14px] text-brand">
+            <strong>See it here:</strong> {entry.showThem}
+          </p>
+        )}
+      </div>
     </div>
   )
 }
@@ -47,7 +46,7 @@ export function QuestionsTab() {
     return QUESTIONS.filter((entry) => {
       if (category !== 'All' && entry.category !== category) return false
       if (!needle) return true
-      return [entry.question, entry.short, ...(entry.detail ?? [])]
+      return [entry.question, ...entry.answer, entry.example ?? '']
         .join(' ')
         .toLowerCase()
         .includes(needle)
@@ -75,8 +74,8 @@ export function QuestionsTab() {
   return (
     <div className="space-y-4">
       <Card
-        title="Questions you will be asked"
-        subtitle={`The ${QUESTIONS.length} questions that actually come up. Search if something unexpected is asked.`}
+        title="Understanding AI evaluation"
+        subtitle={`${QUESTIONS.length} questions explaining the subject — what it is, how each method works, and what to measure.`}
         action={
           <button
             type="button"
@@ -93,7 +92,7 @@ export function QuestionsTab() {
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search — try 'cost', 'security', 'trust', 'how does it find the document'"
+            placeholder="Search — try 'threshold', 'faithfulness', 'how do you write a rule', 'deepeval'"
             className="w-full rounded-md border border-line bg-canvas px-3 py-2.5 text-[15px] text-ink placeholder:text-ink-faint"
           />
 
@@ -115,8 +114,8 @@ export function QuestionsTab() {
           </div>
 
           <p className="text-[13px] text-ink-faint">
-            Showing {visible.length} of {QUESTIONS.length}. Answers marked{' '}
-            <strong className="text-brand">Show them</strong> tell you which screen to open.
+            Showing {visible.length} of {QUESTIONS.length}. Some answers link to the screen
+            where you can see the thing being described.
           </p>
         </div>
       </Card>

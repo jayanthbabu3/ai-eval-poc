@@ -18,7 +18,7 @@ const TABS: { key: Tab; label: string; hint: string }[] = [
   { key: 'compare', label: 'Compare versions', hint: 'V1 against V2 on the same questions' },
   { key: 'report', label: 'Report', hint: 'Scores across everything asked' },
   { key: 'knowledge', label: 'Knowledge base', hint: 'What the assistant is allowed to know' },
-  { key: 'questions', label: 'Q&A', hint: 'Likely questions from a demo audience, with answers' },
+  { key: 'questions', label: 'Q&A', hint: 'What AI evaluation is, how each method works, what to measure' },
 ]
 
 export default function App() {
