@@ -76,7 +76,7 @@ export function QuestionsTab() {
     <div className="space-y-4">
       <Card
         title="Questions you will be asked"
-        subtitle={`${QUESTIONS.length} likely questions with answers. Search during the demo if something unexpected comes up.`}
+        subtitle={`The ${QUESTIONS.length} questions that actually come up. Search if something unexpected is asked.`}
         action={
           <button
             type="button"
@@ -93,7 +93,7 @@ export function QuestionsTab() {
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search — try 'hallucination', 'cost', 'security', 'why this library'"
+            placeholder="Search — try 'cost', 'security', 'trust', 'how does it find the document'"
             className="w-full rounded-md border border-line bg-canvas px-3 py-2.5 text-[15px] text-ink placeholder:text-ink-faint"
           />
 
