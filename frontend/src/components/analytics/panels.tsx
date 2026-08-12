@@ -21,6 +21,7 @@ import {
 } from './palette'
 import { Sparkline } from './charts'
 import { Modal } from '../ui/Modal'
+import { InfoPopover } from '../ui/InfoPopover'
 
 // ------------------------------------------------------------------- KPIs
 
@@ -34,6 +35,8 @@ interface Kpi {
   higherIsBetter: boolean
   unit?: string
   note: string
+  /** Plain-English explanation behind the ⓘ. Nobody should have to guess "p95". */
+  info: string
 }
 
 function DeltaChip({ delta, higherIsBetter, unit = '' }: { delta: number; higherIsBetter: boolean; unit?: string }) {
@@ -62,6 +65,7 @@ export function KpiStrip() {
       delta: SUMMARY.count - SUMMARY_PREVIOUS.count,
       higherIsBetter: true,
       note: 'last 7 days',
+      info: 'How many answers the assistant produced and we scored in the last seven days. The comparison is against the seven days before that, so a rise means more usage rather than better quality.',
     },
     {
       label: 'Pass rate',
@@ -72,6 +76,7 @@ export function KpiStrip() {
       higherIsBetter: true,
       unit: 'pp',
       note: 'scored 70 or above',
+      info: 'The share of answers that reached our pass mark of 70 out of 100. "pp" means percentage points — a move from 96% to 98% is +2pp, not +2%.',
     },
     {
       label: 'Average score',
@@ -81,6 +86,7 @@ export function KpiStrip() {
       delta: SUMMARY.avgScore - SUMMARY_PREVIOUS.avgScore,
       higherIsBetter: true,
       note: 'out of 100',
+      info: 'The mean combined score across every answer: rule checks 30%, the AI judge 40%, human review 30%. Useful as a headline, but an average hides shape — the distribution chart below shows whether 90 means "mostly 90".',
     },
     {
       label: 'Hallucination rate',
@@ -91,6 +97,7 @@ export function KpiStrip() {
       higherIsBetter: false,
       unit: 'pp',
       note: 'faithfulness under 0.70',
+      info: 'The share of answers that made a claim the retrieved documents did not support — in other words, the assistant made something up. Measured as faithfulness scoring below 0.70. This is the number to watch most closely: a made-up IT policy sends staff down the wrong path.',
     },
     {
       label: 'p95 latency',
@@ -101,6 +108,7 @@ export function KpiStrip() {
       higherIsBetter: false,
       unit: 's',
       note: '19 in 20 are faster',
+      info: 'p95 means the 95th percentile: 95 out of every 100 answers came back faster than this, and 5 were slower. We show it instead of the average because an average is dragged down by the fast majority and hides the slow tail — and the slow answers are the ones users actually notice and complain about.',
     },
     {
       label: 'Spend',
@@ -110,6 +118,7 @@ export function KpiStrip() {
       delta: SUMMARY.cost - SUMMARY_PREVIOUS.cost,
       higherIsBetter: false,
       note: 'judge + assistant',
+      info: 'Estimated spend on model calls over the period, covering both the assistant writing answers and the judge scoring them. The judge is usually the larger share, because it makes several calls per answer.',
     },
     {
       label: 'Security blocks',
@@ -119,6 +128,7 @@ export function KpiStrip() {
       delta: SUMMARY.blocked - SUMMARY_PREVIOUS.blocked,
       higherIsBetter: false,
       note: 'released regardless is never an option',
+      info: 'Answers stopped by a failed security check — a leaked credential, exposed personal data, or obeying an instruction hidden in a user question. These are blocked outright regardless of how well they scored elsewhere, because a good answer does not cancel out a data leak.',
     },
     {
       label: 'Judge–human agreement',
@@ -129,6 +139,7 @@ export function KpiStrip() {
       higherIsBetter: true,
       unit: 'pp',
       note: `${SUMMARY.reviewed} answers reviewed`,
+      info: 'How often the AI judge and a human reviewer put an answer on the same side of the pass mark. This is the number that justifies trusting the automated scores between human reviews. If it dropped below about 80%, the judge would need recalibrating before anyone relied on it.',
     },
   ]
 
@@ -136,9 +147,12 @@ export function KpiStrip() {
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {kpis.map((kpi) => (
         <div key={kpi.label} className="rounded-lg border border-line bg-surface p-3">
-          <p className="text-[13px] font-medium uppercase tracking-wider text-ink-muted">
-            {kpi.label}
-          </p>
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-[13px] font-medium uppercase tracking-wider text-ink-muted">
+              {kpi.label}
+            </p>
+            <InfoPopover title={kpi.label}>{kpi.info}</InfoPopover>
+          </div>
           <div className="mt-1 flex items-baseline justify-between gap-2">
             <p className="tabular text-[26px] font-semibold text-ink">{kpi.value}</p>
             <DeltaChip delta={kpi.delta} higherIsBetter={kpi.higherIsBetter} unit={kpi.unit} />

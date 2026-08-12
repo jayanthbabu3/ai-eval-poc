@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { CheckIcon, CrossIcon } from './Icons'
+import { InfoPopover } from './ui/InfoPopover'
 
 /**
  * Section card with a tinted header bar.
@@ -14,6 +15,8 @@ export function Card({
   title,
   subtitle,
   action,
+  info,
+  infoTitle,
   children,
   className = '',
   bodyClassName = 'p-4',
@@ -22,16 +25,19 @@ export function Card({
   title?: string
   subtitle?: string
   action?: ReactNode
+  /** Explanation shown behind an ⓘ beside the title, for anything jargon-shaped. */
+  info?: ReactNode
+  infoTitle?: string
   children: ReactNode
   className?: string
   bodyClassName?: string
 }) {
   return (
     <section
-      className={`overflow-hidden rounded-xl border border-line bg-surface shadow-[0_1px_3px_0_rgba(45,48,65,0.08)] ${className}`}
+      className={`rounded-xl border border-line bg-surface shadow-[0_1px_3px_0_rgba(45,48,65,0.08)] ${className}`}
     >
       {(title || action) && (
-        <header className="flex items-start justify-between gap-3 border-b border-line bg-raised px-4 py-3">
+        <header className="flex items-start justify-between gap-3 rounded-t-xl border-b border-line bg-raised px-4 py-3">
           <div className="flex items-start gap-2.5">
             {step !== undefined && (
               <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-[13px] font-bold text-white">
@@ -40,7 +46,14 @@ export function Card({
             )}
             <div>
               {title && (
-                <h2 className="font-display text-[17px] font-semibold text-ink">{title}</h2>
+                <h2 className="flex items-center gap-1.5 font-display text-[17px] font-semibold text-ink">
+                  {title}
+                  {info && (
+                    <InfoPopover title={infoTitle ?? title} align="left">
+                      {info}
+                    </InfoPopover>
+                  )}
+                </h2>
               )}
               {subtitle && <p className="mt-0.5 text-[14px] text-ink-muted">{subtitle}</p>}
             </div>
@@ -48,7 +61,7 @@ export function Card({
           {action}
         </header>
       )}
-      <div className={bodyClassName}>{children}</div>
+      <div className={`rounded-b-xl ${bodyClassName}`}>{children}</div>
     </section>
   )
 }
