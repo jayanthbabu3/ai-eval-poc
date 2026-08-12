@@ -9,8 +9,9 @@ import { CompareTab } from './components/tabs/CompareTab'
 import { ReportTab } from './components/tabs/ReportTab'
 import { KnowledgeTab } from './components/tabs/KnowledgeTab'
 import { QuestionsTab } from './components/tabs/QuestionsTab'
+import { AnalyticsTab } from './components/tabs/AnalyticsTab'
 
-type Tab = 'guide' | 'demo' | 'compare' | 'report' | 'knowledge' | 'questions'
+type Tab = 'guide' | 'demo' | 'compare' | 'report' | 'knowledge' | 'questions' | 'analytics'
 
 const TABS: { key: Tab; label: string; hint: string }[] = [
   { key: 'guide', label: 'Start here', hint: 'What AI evaluation is and why it matters' },
@@ -19,6 +20,7 @@ const TABS: { key: Tab; label: string; hint: string }[] = [
   { key: 'report', label: 'Report', hint: 'Scores across everything asked' },
   { key: 'knowledge', label: 'Knowledge base', hint: 'What the assistant is allowed to know' },
   { key: 'questions', label: 'Q&A', hint: 'What AI evaluation is, how each method works, what to measure' },
+  { key: 'analytics', label: 'Analytics', hint: 'Production-style reporting on simulated evaluation history' },
 ]
 
 export default function App() {
@@ -113,6 +115,7 @@ export default function App() {
         {tab === 'report' && <ReportTab refreshKey={sessionVersion} />}
         {tab === 'knowledge' && <KnowledgeTab />}
         {tab === 'questions' && <QuestionsTab />}
+        {tab === 'analytics' && <AnalyticsTab />}
       </main>
     </div>
   )
