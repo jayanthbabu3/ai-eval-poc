@@ -1,5 +1,15 @@
 @import 'tailwindcss';
 
+/* Fonts are bundled, not fetched from Google at runtime.
+   A machine that is offline, behind a proxy, or on a network that blocks
+   fonts.googleapis.com would otherwise fall back to the system UI font — which
+   silently changes every text metric and makes the whole layout look wrong,
+   with no error anywhere to explain it. */
+@import '@fontsource-variable/archivo';
+@import '@fontsource-variable/inter';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+
 /* Design system: white surfaces, blue for action, green for success.
    Type is carried over from the Livinwalls brand sheet — Archivo for display,
    Inter for body, IBM Plex Mono for figures.
@@ -8,8 +18,8 @@
    headings, buttons, or decoration, so a red mark on this page always means
    the same thing. */
 @theme {
-  --font-display: 'Archivo', system-ui, sans-serif;
-  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-display: 'Archivo Variable', 'Archivo', system-ui, sans-serif;
+  --font-sans: 'Inter Variable', 'Inter', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
   /* The page sits a step darker than the cards so panels have a visible edge. */
