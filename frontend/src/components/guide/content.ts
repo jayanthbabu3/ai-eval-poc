@@ -183,6 +183,32 @@ export const TOOLS: ToolRow[] = [
     used: false,
   },
   {
+    name: 'Galileo',
+    kind: 'Hosted platform',
+    whatItIs:
+      'Evaluation and observability for LLM apps and agents. Notable for scoring with small purpose-built evaluator models rather than a large general LLM.',
+    useWhen:
+      'You are running at volume and judging every response with a big model has become too slow or too expensive.',
+    benefit:
+      'Much cheaper and faster per evaluation than a frontier-model judge, plus production monitoring and guardrails in the same product.',
+    watchOut:
+      'Commercial and hosted, so it needs an account and budget. Its evaluators are its own models, so you trade some control for the speed.',
+    used: false,
+  },
+  {
+    name: 'Confident AI',
+    kind: 'Hosted platform',
+    whatItIs:
+      'The commercial cloud built by the DeepEval team — the same metrics, plus dashboards, run history and team sharing.',
+    useWhen:
+      'You started with DeepEval locally and now want results stored, shared and tracked over time without building that yourself.',
+    benefit:
+      'No migration: the tests you already wrote keep working, they just report somewhere central.',
+    watchOut:
+      'Results leave your machine. Fine for most teams, a blocker in a regulated environment.',
+    used: false,
+  },
+  {
     name: 'Guardrails AI / NeMo Guardrails',
     kind: 'Runtime guard',
     whatItIs:
@@ -234,44 +260,39 @@ export const DECISIONS: DecisionRow[] = [
   },
 ]
 
-export interface ChoiceReason {
-  reason: string
-  detail: string
+export interface ProviderRow {
+  provider: string
+  baseUrl: string
+  note: string
 }
 
-export const WHY_DEEPEVAL: ChoiceReason[] = [
+/** Any OpenAI-compatible endpoint works for both the assistant and the judge. */
+export const PROVIDERS: ProviderRow[] = [
   {
-    reason: 'It let us use Groq as the judge',
-    detail:
-      'DeepEval defaults to OpenAI, but exposes a base class you can implement. We wrapped Groq in about 100 lines, so the whole project needs one API key instead of two.',
+    provider: 'Groq',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    note: 'What this project ships with. Fast and free to start, but the free tier caps daily tokens.',
   },
   {
-    reason: 'Every score comes with a written reason',
-    detail:
-      'A bare number is useless in a demo. DeepEval returns why it scored what it did, which is what you see in the judge panel.',
+    provider: 'Ollama (local)',
+    baseUrl: 'http://localhost:11434/v1',
+    note: 'Runs on your own machine. No key, no rate limit, no data leaves the laptop — slower on modest hardware.',
   },
   {
-    reason: 'The metrics we needed already existed',
-    detail:
-      'Faithfulness and answer relevancy work with no reference answer. GEval let us define correctness and completeness in plain English rather than writing judge prompts.',
+    provider: 'OpenAI',
+    baseUrl: 'https://api.openai.com/v1',
+    note: 'Strongest judges available, and priced accordingly.',
   },
   {
-    reason: 'It runs like pytest',
-    detail:
-      'Evaluations are ordinary Python tests, so they run locally and in CI with no account, no dashboard, and no data leaving the machine.',
+    provider: 'Together / OpenRouter / Fireworks',
+    baseUrl: 'provider-specific /v1 URL',
+    note: 'Aggregators — useful for trying many open models behind one key.',
   },
   {
-    reason: 'Nothing is hosted',
-    detail:
-      'Important for a POC that may handle internal IT policy. There is telemetry, which this project turns off explicitly.',
+    provider: 'vLLM / LM Studio',
+    baseUrl: 'http://localhost:8000/v1',
+    note: 'Self-hosted serving for a model your organisation runs itself.',
   },
-]
-
-export const DEEPEVAL_TRADEOFFS: string[] = [
-  'Heavy dependencies — it pins the project below Python 3.13, which is why setup specifies 3.12.',
-  'Each metric is one or more model calls, so a full suite run costs real tokens and hits rate limits.',
-  'Scores vary between runs. We saw the same correct answer score 1.00 once and 0.30 another time.',
-  'Weaker on retrieval metrics than RAGAS. If search quality were the main worry, that would be the better pick.',
 ]
 
 export interface GlossaryRow {

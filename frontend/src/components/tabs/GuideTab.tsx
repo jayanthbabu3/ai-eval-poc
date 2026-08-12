@@ -3,12 +3,11 @@ import { Card } from '../Primitives'
 import { FlowDiagram } from '../guide/FlowDiagram'
 import {
   DECISIONS,
-  DEEPEVAL_TRADEOFFS,
   GLOSSARY,
   METHODS,
   METRICS,
+  PROVIDERS,
   TOOLS,
-  WHY_DEEPEVAL,
 } from '../guide/content'
 
 const SECTIONS = [
@@ -260,43 +259,44 @@ export function GuideTab() {
             ))}
           </div>
 
-          <h3 className="pt-2 text-[16px] font-semibold text-ink">
-            Why this project uses DeepEval
-          </h3>
-          <ol className="space-y-2">
-            {WHY_DEEPEVAL.map((entry, index) => (
-              <li key={entry.reason} className="rounded-md border border-line p-3">
-                <p className="text-[14px] font-semibold text-ink">
-                  <span className="tabular mr-1.5 text-brand">{index + 1}.</span>
-                  {entry.reason}
-                </p>
-                <p className="mt-0.5 text-[14px] text-ink-muted">{entry.detail}</p>
-              </li>
-            ))}
-          </ol>
+          <p className="rounded-md border border-line bg-raised p-3">
+            <strong>This project uses DeepEval</strong> because it runs locally like pytest,
+            ships the four metrics we needed, returns a written reason with every score, and
+            lets you plug in any model as the judge. If retrieval quality were the main
+            concern, RAGAS would be the better starting point; if the goal were comparing
+            prompts quickly, promptfoo would.
+          </p>
 
-          <div className="rounded-md border border-warn/40 bg-warn-soft p-3">
-            <p className="text-[14px] font-semibold text-warn">
-              What we gave up by choosing it
-            </p>
-            <ul className="mt-1.5 ml-5 list-disc space-y-1">
-              {DEEPEVAL_TRADEOFFS.map((line) => (
-                <li key={line} className="text-[14px] text-ink-muted">
-                  {line}
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 text-[14px] text-ink-muted">
-              None of these were dealbreakers for a POC, and the last one is worth saying out
-              loud in any review: <strong>the judge is a model, so its score is an informed
-              opinion, not a fact.</strong> That is exactly why rule checks and a human sit
-              either side of it.
-            </p>
-          </div>
+          <h3 className="pt-2 text-[16px] font-semibold text-ink">
+            Which models and providers work
+          </h3>
+          <p>
+            Both the assistant and the judge talk to an <strong>OpenAI-compatible</strong> chat
+            endpoint, so any of these can drive them. What changes is the base URL and the key.
+          </p>
+
+          <Table head={['Provider', 'Base URL', 'Notes']}>
+            {PROVIDERS.map((row) => (
+              <tr key={row.provider} className="border-t border-line align-top">
+                <td className="px-3 py-2 font-medium text-ink">{row.provider}</td>
+                <td className="tabular px-3 py-2 text-[13px] text-ink-muted">{row.baseUrl}</td>
+                <td className="px-3 py-2 text-ink-muted">{row.note}</td>
+              </tr>
+            ))}
+          </Table>
+
+          <p className="rounded-md border border-warn/40 bg-warn-soft p-3 text-[14px]">
+            <strong>Note on this build:</strong> the client as committed points at Groq only.
+            Pointing it at Ollama or anything else means passing a <code>base_url</code> when
+            the client is constructed — a one-line change in{' '}
+            <span className="tabular">src/eval_poc/llm/groq_client.py</span>. Running locally
+            with Ollama removes the rate limits entirely and keeps every question on your own
+            machine, which is often the better choice for a demo.
+          </p>
 
           <p>
-            A real deployment usually ends up with two or three of these, not one: a library
-            like DeepEval for the test suite, a hosted platform for live traffic, and a
+            A real deployment usually ends up with two or three of these tools, not one: a
+            library like DeepEval for the test suite, a hosted platform for live traffic, and a
             guardrail in front of the model in production.
           </p>
         </Section>

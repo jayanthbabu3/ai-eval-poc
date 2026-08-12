@@ -172,6 +172,31 @@ weights are renormalised — the app always says what a score rests on.
 **Any failed security check blocks release** regardless of the total. A leaked credential
 is not redeemed by fast, well-cited prose.
 
+## Using a different model provider
+
+Both the assistant and the judge speak the OpenAI-compatible chat API, so any of these
+can drive them — only the base URL and key change.
+
+| Provider | Base URL | Notes |
+| --- | --- | --- |
+| Groq | `https://api.groq.com/openai/v1` | What this ships with. Free tier caps daily tokens. |
+| Ollama (local) | `http://localhost:11434/v1` | No key, no rate limit, nothing leaves the machine. |
+| OpenAI | `https://api.openai.com/v1` | Strongest judges, priced accordingly. |
+| Together / OpenRouter | provider-specific `/v1` | Many open models behind one key. |
+| vLLM / LM Studio | `http://localhost:8000/v1` | Self-hosted serving. |
+
+**The client as committed points at Groq only.** To use Ollama or another endpoint, pass a
+`base_url` where the client is constructed in `src/eval_poc/llm/groq_client.py`:
+
+```python
+return Groq(api_key=self._api_key, base_url="http://localhost:11434/v1")
+```
+
+Then set the model names in `config.json` to models you have pulled (`ollama pull llama3.1`),
+and put any non-empty value in `GROQ_API_KEY` — Ollama ignores it, but the SDK requires one.
+
+Running locally removes the rate limits that otherwise interrupt a long comparison run.
+
 ## Known limitations
 
 - **Small scale.** 12 questions, 12 articles — sized to demonstrate the harness, not to
