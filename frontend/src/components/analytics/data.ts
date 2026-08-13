@@ -674,6 +674,12 @@ function agreementRate(reviewed: EvalRecord[]): number {
   return (agreed.length / reviewed.length) * 100
 }
 
+/** One day of a KPI tile's little chart. */
+export interface SparkPoint {
+  v: number
+  label: string
+}
+
 export interface Insight {
   tone: 'critical' | 'warning' | 'good'
   headline: string
@@ -732,7 +738,7 @@ export interface AnalyticsView {
     | 'cost'
     | 'blocked'
     | 'agreement',
-    { v: number }[]
+    SparkPoint[]
   >
   insights: Insight[]
 }
@@ -838,16 +844,17 @@ export function buildView(range: Range): AnalyticsView {
     })
     .filter((entry) => entry.volume > 0)
 
+  // Each point carries its date so the sparkline can say which day you are on.
   const spark = {
-    volume: days.map((point) => ({ v: point.volume })),
-    passRate: days.map((point) => ({ v: point.passRate })),
-    score: days.map((point) => ({ v: point.finalScore })),
-    faithfulness: days.map((point) => ({ v: point.faithfulness })),
-    p95: days.map((point) => ({ v: point.p95 })),
-    cost: days.map((point) => ({ v: point.costUsd })),
-    blocked: days.map((point) => ({ v: point.blocked })),
-    hallucination: days.map((point) => ({ v: point.hallucinationRate })),
-    agreement: days.map((point) => ({ v: rollingAgreement(point.dayIndex) })),
+    volume: days.map((point) => ({ v: point.volume, label: point.label })),
+    passRate: days.map((point) => ({ v: point.passRate, label: point.label })),
+    score: days.map((point) => ({ v: point.finalScore, label: point.label })),
+    faithfulness: days.map((point) => ({ v: point.faithfulness, label: point.label })),
+    p95: days.map((point) => ({ v: point.p95, label: point.label })),
+    cost: days.map((point) => ({ v: point.costUsd, label: point.label })),
+    blocked: days.map((point) => ({ v: point.blocked, label: point.label })),
+    hallucination: days.map((point) => ({ v: point.hallucinationRate, label: point.label })),
+    agreement: days.map((point) => ({ v: rollingAgreement(point.dayIndex), label: point.label })),
   }
 
   return {

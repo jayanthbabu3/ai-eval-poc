@@ -43,19 +43,34 @@ const legendStyle = { fontSize: 13, color: INK.secondary, paddingTop: 8 }
 
 // ---------------------------------------------------------------- sparkline
 
-/** Tiny single-series trend for a KPI tile. One series, so no legend. */
+/**
+ * Tiny single-series trend for a KPI tile. One series, so no legend — but it
+ * does get a tooltip: a chart you cannot interrogate is decoration, and the
+ * first thing anyone does with a line is point at the interesting part of it.
+ */
 export function Sparkline({
   data,
   colour,
   height = 32,
+  format = (value: number) => value.toFixed(1),
+  name = 'Value',
 }: {
-  data: { v: number }[]
+  data: { v: number; label?: string }[]
   colour: string
   height?: number
+  /** Formats the value in the tooltip, so each tile shows its own units. */
+  format?: (value: number) => string
+  name?: string
 }) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+        <XAxis dataKey="label" hide />
+        <Tooltip
+          {...TOOLTIP}
+          cursor={{ stroke: INK.muted, strokeDasharray: '3 3' }}
+          formatter={(value) => [format(Number(value)), name]}
+        />
         <defs>
           <linearGradient id={`spark-${colour.slice(1)}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={colour} stopOpacity={0.28} />
@@ -70,6 +85,7 @@ export function Sparkline({
           fill={`url(#spark-${colour.slice(1)})`}
           isAnimationActive={false}
           dot={false}
+          activeDot={{ r: 3, strokeWidth: 2, stroke: INK.surface, fill: colour }}
         />
       </AreaChart>
     </ResponsiveContainer>

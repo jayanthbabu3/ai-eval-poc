@@ -300,7 +300,13 @@ export function HeroBand() {
                 <Delta delta={stat.delta} higherIsBetter={stat.higherIsBetter} unit={stat.unit} />
               </div>
               <div className="mt-3">
-                <Sparkline data={stat.spark} colour={stat.colour} height={56} />
+                <Sparkline
+                  data={stat.spark}
+                  colour={stat.colour}
+                  height={56}
+                  format={stat.fmt}
+                  name={stat.sparkWindow === '7-day' ? '7-day average' : 'That day'}
+                />
               </div>
               <div className="mt-2 flex items-baseline justify-between gap-2 text-[12px] text-ink-faint">
                 <span>{stat.note}</span>
