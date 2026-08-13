@@ -368,6 +368,10 @@ export interface DayPoint {
   costAssistantUsd: number
   costJudgeUsd: number
   passRate: number
+  blocked: number
+  /** Answers a person reviewed that day, and how many the judge agreed with. */
+  reviewed: number
+  agreed: number
 }
 
 function percentile(values: number[], fraction: number): number {
@@ -381,6 +385,16 @@ const round4 = (value: number) => Math.round(value * 10_000) / 10_000
 
 const mean = (values: number[]) =>
   values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length
+
+/** Weights the final score is blended with. Renormalised per answer when a component is missing. */
+export const WEIGHTS = { rules: 0.3, judge: 0.4, human: 0.3 } as const
+
+export const rulesScoreOf = (row: EvalRecord) =>
+  (row.ruleChecksPassed / row.ruleChecksTotal) * 100
+
+export const judgeScoreOf = (row: EvalRecord) =>
+  ((row.scores.correctness + row.scores.completeness + row.scores.faithfulness +
+    row.scores.relevancy) / 4) * 100
 
 /** Every day in the dataset, pre-rolled. Range selection slices this. */
 export const BY_DAY: DayPoint[] = Array.from({ length: DAYS }, (_, dayIndex) => {
@@ -407,8 +421,32 @@ export const BY_DAY: DayPoint[] = Array.from({ length: DAYS }, (_, dayIndex) => 
         ? 0
         : Math.round((rows.filter((row) => row.verdict === 'pass').length / rows.length) * 1000) /
           10,
+    blocked: rows.filter((row) => row.verdict === 'blocked').length,
+    reviewed: rows.filter((row) => row.humanScore !== null).length,
+    agreed: rows.filter((row) => row.humanScore !== null && judgeAgreesWithHuman(row)).length,
   }
 })
+
+/** Do judge and human land on the same side of the pass mark? */
+function judgeAgreesWithHuman(row: EvalRecord): boolean {
+  return (judgeScoreOf(row) >= 70) === ((row.humanScore ?? 0) >= 70)
+}
+
+/**
+ * Agreement per day is far too noisy to plot — roughly three answers get
+ * reviewed in a day, so it jumps between 0, 67 and 100. A trailing seven-day
+ * window is the smallest one that says anything.
+ */
+function rollingAgreement(dayIndex: number, window = 7): number {
+  const from = Math.max(0, dayIndex - window + 1)
+  let reviewed = 0
+  let agreed = 0
+  for (let day = from; day <= dayIndex; day += 1) {
+    reviewed += BY_DAY[day].reviewed
+    agreed += BY_DAY[day].agreed
+  }
+  return reviewed === 0 ? 0 : (agreed / reviewed) * 100
+}
 
 export interface Summary {
   count: number
@@ -433,15 +471,6 @@ export interface Summary {
   metrics: Record<MetricKey, number>
 }
 
-/** Weights the final score is blended with. Renormalised per answer when a component is missing. */
-export const WEIGHTS = { rules: 0.3, judge: 0.4, human: 0.3 } as const
-
-export const rulesScoreOf = (row: EvalRecord) =>
-  (row.ruleChecksPassed / row.ruleChecksTotal) * 100
-
-export const judgeScoreOf = (row: EvalRecord) =>
-  ((row.scores.correctness + row.scores.completeness + row.scores.faithfulness +
-    row.scores.relevancy) / 4) * 100
 
 export function summarise(rows: EvalRecord[]): Summary {
   const reviewed = rows.filter((row) => row.humanScore !== null)
@@ -479,10 +508,7 @@ export function summarise(rows: EvalRecord[]): Summary {
 /** How often judge and human land on the same side of the pass mark. */
 function agreementRate(reviewed: EvalRecord[]): number {
   if (reviewed.length === 0) return 0
-  const agreed = reviewed.filter((row) => {
-    const judge = ((row.scores.correctness + row.scores.completeness) / 2) * 100
-    return (judge >= 70) === ((row.humanScore ?? 0) >= 70)
-  })
+  const agreed = reviewed.filter(judgeAgreesWithHuman)
   return (agreed.length / reviewed.length) * 100
 }
 
@@ -534,7 +560,10 @@ export interface AnalyticsView {
     relevancy: number
     volume: number
   }[]
-  spark: Record<'volume' | 'passRate' | 'score' | 'faithfulness' | 'p95' | 'cost', { v: number }[]>
+  spark: Record<
+    'volume' | 'passRate' | 'score' | 'faithfulness' | 'p95' | 'cost' | 'blocked' | 'agreement',
+    { v: number }[]
+  >
   insights: Insight[]
 }
 
@@ -619,7 +648,7 @@ export function buildView(range: Range): AnalyticsView {
   const agreementPoints = rows
     .filter((row) => row.humanScore !== null)
     .map((row) => ({
-      judge: Math.round(((row.scores.correctness + row.scores.completeness) / 2) * 1000) / 10,
+      judge: Math.round(judgeScoreOf(row) * 10) / 10,
       human: row.humanScore as number,
       topic: row.topic,
       id: row.id,
@@ -646,6 +675,8 @@ export function buildView(range: Range): AnalyticsView {
     faithfulness: days.map((point) => ({ v: point.faithfulness })),
     p95: days.map((point) => ({ v: point.p95 })),
     cost: days.map((point) => ({ v: point.costUsd })),
+    blocked: days.map((point) => ({ v: point.blocked })),
+    agreement: days.map((point) => ({ v: rollingAgreement(point.dayIndex) })),
   }
 
   return {

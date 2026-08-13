@@ -89,7 +89,8 @@ export function HeroBand() {
       unit: 'pp',
       spark: spark.passRate,
       colour: SERIES.faithfulness,
-      note: 'answers scoring 70 or above',
+      note: 'blended final score 70+',
+      fmt: (v: number) => `${v.toFixed(1)}%`,
       info: 'The share of answers that reached our pass mark of 70 out of 100. "pp" means percentage points — a move from 96% to 98% is +2pp, not +2%.',
     },
     {
@@ -100,7 +101,8 @@ export function HeroBand() {
       unit: 'pp',
       spark: spark.faithfulness,
       colour: SERIES.completeness,
-      note: 'faithfulness below 0.70',
+      note: 'judge’s faithfulness below 0.70',
+      fmt: (v: number) => `${v.toFixed(1)}%`,
       info: 'The share of answers that made a claim the retrieved documents did not support — in other words, the assistant made something up. Measured as faithfulness scoring below 0.70. This is the number to watch most closely: a made-up IT policy sends staff down the wrong path.',
     },
     {
@@ -112,6 +114,7 @@ export function HeroBand() {
       spark: spark.p95,
       colour: SERIES.relevancy,
       note: '19 in 20 answers were faster',
+      fmt: (v: number) => `${(v / 1000).toFixed(1)}s`,
       info: 'p95 means the 95th percentile: 95 out of every 100 answers came back faster than this, and 5 were slower. We show it instead of the average because an average is dragged down by the fast majority and hides the slow tail — and the slow answers are the ones users actually notice and complain about.',
     },
     {
@@ -122,6 +125,7 @@ export function HeroBand() {
       spark: spark.cost,
       colour: SERIES.correctness,
       note: `assistant $${summary.costAssistant.toFixed(2)} · judge $${summary.costJudge.toFixed(2)}`,
+      fmt: (v: number) => `$${v.toFixed(2)}`,
       info: `Estimated spend on model calls over the selected ${lengthDays} days at Groq's published rates. The assistant writing the answers cost $${summary.costAssistant.toFixed(2)}; the judge scoring them cost $${summary.costJudge.toFixed(2)}, because it makes one call per metric and each one re-sends the question, the retrieved articles and the answer. Evaluation is the larger bill, which is the trade being made for the evidence on this page.`,
     },
     {
@@ -129,9 +133,10 @@ export function HeroBand() {
       value: String(summary.blocked),
       delta: delta((s) => s.blocked),
       higherIsBetter: false,
-      spark: spark.passRate,
+      spark: spark.blocked,
       colour: STATUS.critical,
-      note: 'blocked regardless of score',
+      note: 'security rule veto, whatever the score',
+      fmt: (v: number) => String(v),
       info: 'Answers stopped by a failed security check — a leaked credential, exposed personal data, or obeying an instruction hidden in a user question. These are blocked outright regardless of how well they scored elsewhere, because a good answer does not cancel out a data leak.',
     },
     {
@@ -140,9 +145,11 @@ export function HeroBand() {
       delta: delta((s) => s.humanAgreement),
       higherIsBetter: true,
       unit: 'pp',
-      spark: spark.score,
+      spark: spark.agreement,
       colour: SERIES.faithfulness,
-      note: `on ${summary.reviewed} answers scored by both`,
+      note: `${summary.reviewed} answers scored by both`,
+      fmt: (v: number) => `${v.toFixed(0)}%`,
+      sparkWindow: '7-day',
       info: `How often the AI judge and a human reviewer put an answer on the same side of the pass mark, measured on the ${summary.reviewed} answers a person reviewed in this period. This is what justifies trusting the automated scores between human reviews. Below about 80% the judge would need recalibrating before anyone relied on it.`,
     },
   ]
@@ -268,11 +275,28 @@ export function HeroBand() {
               <div className="mt-3">
                 <Sparkline data={stat.spark} colour={stat.colour} height={56} />
               </div>
-              <p className="mt-2 text-[12px] text-ink-faint">{stat.note}</p>
+              <div className="mt-2 flex items-baseline justify-between gap-2 text-[12px] text-ink-faint">
+                <span>{stat.note}</span>
+                <span className="tabular shrink-0">
+                  {stat.sparkWindow ?? 'daily'} {rangeOf(stat.spark, stat.fmt)}
+                </span>
+              </div>
             </div>
           ))}
         </div>
       </div>
+
+      <p className="border-t border-line px-4 py-2 text-[12px] text-ink-faint">
+        Each small chart is one point per day across the selected period, with its own high and
+        low printed beside it — the shape shows direction, the range shows how far it moved.
+      </p>
     </section>
   )
+}
+
+/** High and low of a sparkline series, so the shape has a scale attached. */
+function rangeOf(series: { v: number }[], format: (value: number) => string): string {
+  if (series.length === 0) return '—'
+  const values = series.map((point) => point.v)
+  return `${format(Math.min(...values))}–${format(Math.max(...values))}`
 }
