@@ -12,7 +12,7 @@ import {
   VersionComparison,
 } from '../analytics/charts'
 import { EvaluationsTable, Insights, TOTAL_RECORDS, TopicHeatmap } from '../analytics/panels'
-import { DAYS, FIRST_DATE, LAST_DATE, QUESTION_COUNT, TOPICS } from '../analytics/data'
+import { COST_MODEL, DAYS, FIRST_DATE, LAST_DATE, QUESTION_COUNT, TOPICS } from '../analytics/data'
 import { SERIES, STATUS } from '../analytics/palette'
 import { Panel, SectionLabel } from '../analytics/Panel'
 import { HeroBand } from '../analytics/HeroBand'
@@ -168,8 +168,8 @@ function AnalyticsBody() {
         span={4}
         title="Spend"
         accent={SERIES.correctness}
-        meta={`total $${view.summary.cost.toFixed(2)}`}
-        info="Estimated daily cost of model calls. It is deliberately a separate chart from latency: putting two different measures on one pair of axes makes the eye see a relationship between them that may not exist, which is the most common way a dashboard misleads."
+        meta={`total $${view.summary.cost.toFixed(2)} · ${COST_MODEL.label} rates`}
+        info={`Daily cost of model calls, split between the assistant writing answers and the judge scoring them, priced at ${COST_MODEL.label} rates ($${COST_MODEL.inputPerMillion} per million input tokens, $${COST_MODEL.outputPerMillion} per million output). It is deliberately a separate chart from latency: putting two different measures on one pair of axes makes the eye see a relationship between them that may not exist, which is the most common way a dashboard misleads.`}
       >
         <CostTrend />
       </Panel>

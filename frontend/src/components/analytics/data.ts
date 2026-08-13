@@ -269,12 +269,22 @@ const RULE_CHECKS = [
 ] as const
 
 /**
- * Model rates, per token. Groq's published prices are per million tokens, and
- * the arithmetic below divides accordingly — an earlier version multiplied by a
- * thousand instead, inflating every spend figure by 1000x.
+ * Assumed model and its rates, quoted per million tokens and divided here.
+ *
+ * The local demo runs on Groq because that is what the free tier allows, but
+ * these figures are meant to represent what this would cost in production, so
+ * they use Claude Sonnet-class pricing instead. Rates change — this is the one
+ * place to update them, and the figure is labelled on screen with the model it
+ * assumes so nobody quotes it without knowing what it is based on.
  */
-const RATE_INPUT = 0.59 / 1_000_000
-const RATE_OUTPUT = 0.79 / 1_000_000
+export const COST_MODEL = {
+  label: 'Claude Sonnet',
+  inputPerMillion: 3,
+  outputPerMillion: 15,
+} as const
+
+const RATE_INPUT = COST_MODEL.inputPerMillion / 1_000_000
+const RATE_OUTPUT = COST_MODEL.outputPerMillion / 1_000_000
 
 /** The judge scores four metrics, one call each. */
 const JUDGE_METRICS = 4

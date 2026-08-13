@@ -2,6 +2,7 @@ import { Sparkline } from './charts'
 import { useView } from './view'
 import { InfoPopover } from '../ui/InfoPopover'
 import { SERIES, STATUS } from './palette'
+import { COST_MODEL } from './data'
 
 /**
  * The headline band — an executive summary, in the app's own white/blue/green.
@@ -152,7 +153,7 @@ export function HeroBand() {
       colour: SERIES.correctness,
       note: `assistant $${summary.costAssistant.toFixed(2)} · judge $${summary.costJudge.toFixed(2)}`,
       fmt: (v: number) => `$${v.toFixed(2)}`,
-      info: `Estimated spend on model calls over the selected ${lengthDays} days at Groq's published rates. The assistant writing the answers cost $${summary.costAssistant.toFixed(2)}; the judge scoring them cost $${summary.costJudge.toFixed(2)}, because it makes one call per metric and each one re-sends the question, the retrieved articles and the answer. Evaluation is the larger bill, which is the trade being made for the evidence on this page.`,
+      info: `Estimated spend on model calls over the selected ${lengthDays} days, priced at ${COST_MODEL.label} rates — $${COST_MODEL.inputPerMillion} per million input tokens and $${COST_MODEL.outputPerMillion} per million output. The assistant writing the answers cost $${summary.costAssistant.toFixed(2)}; the judge scoring them cost $${summary.costJudge.toFixed(2)}, because it makes one call per metric and each re-sends the question, the retrieved articles and the answer. Evaluation is the larger bill — that is the trade being made for the evidence on this page, and the reason you would sample the judge rather than run it on everything at high volume.`,
     },
     {
       label: 'Security blocks',
