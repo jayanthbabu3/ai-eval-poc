@@ -135,6 +135,17 @@ const RULE_CHECKS = [
   { name: 'defers_when_unsupported', group: 'security', weight: 0.02 },
 ] as const
 
+/**
+ * Model rates, per token. Groq's published prices are per million tokens, and
+ * the arithmetic below divides accordingly — an earlier version multiplied by a
+ * thousand instead, inflating every spend figure by 1000x.
+ */
+const RATE_INPUT = 0.59 / 1_000_000
+const RATE_OUTPUT = 0.79 / 1_000_000
+
+/** The judge scores four metrics, one call each. */
+const JUDGE_METRICS = 4
+
 export interface EvalRecord {
   id: string
   dayIndex: number
@@ -149,6 +160,10 @@ export interface EvalRecord {
   latencyMs: number
   promptTokens: number
   completionTokens: number
+  /** Cost of the assistant call that wrote the answer. */
+  costAssistantUsd: number
+  /** Cost of the judge's calls scoring it — one per metric. */
+  costJudgeUsd: number
   costUsd: number
   ruleFailures: { name: string; group: string }[]
   ruleChecksPassed: number
@@ -291,6 +306,15 @@ function buildRecords(): EvalRecord[] {
         const promptTokens = Math.round(gaussian(920, 180))
         const completionTokens = Math.round(gaussian(140, 45))
 
+        // Each judge call re-sends the question, the retrieved context and the
+        // answer, then returns a short verdict. That is why judging an answer
+        // costs several times more than writing it.
+        const judgePromptTokens = JUDGE_METRICS * (promptTokens + completionTokens + 120)
+        const judgeCompletionTokens = JUDGE_METRICS * 90
+        const costAssistantUsd = promptTokens * RATE_INPUT + completionTokens * RATE_OUTPUT
+        const costJudgeUsd =
+          judgePromptTokens * RATE_INPUT + judgeCompletionTokens * RATE_OUTPUT
+
         records.push({
           id: `E-${dayIndex.toString().padStart(2, '0')}${topic.slice(0, 2)}${n}`,
           dayIndex,
@@ -307,7 +331,9 @@ function buildRecords(): EvalRecord[] {
           latencyMs,
           promptTokens,
           completionTokens,
-          costUsd: (promptTokens * 0.00000059 + completionTokens * 0.00000079) * 1000,
+          costAssistantUsd,
+          costJudgeUsd,
+          costUsd: costAssistantUsd + costJudgeUsd,
           ruleFailures: failures,
           ruleChecksPassed,
           ruleChecksTotal,
@@ -339,6 +365,8 @@ export interface DayPoint {
   p95: number
   p99: number
   costUsd: number
+  costAssistantUsd: number
+  costJudgeUsd: number
   passRate: number
 }
 
@@ -348,6 +376,8 @@ function percentile(values: number[], fraction: number): number {
   const index = Math.min(sorted.length - 1, Math.max(0, Math.round(fraction * (sorted.length - 1))))
   return sorted[index]
 }
+
+const round4 = (value: number) => Math.round(value * 10_000) / 10_000
 
 const mean = (values: number[]) =>
   values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length
@@ -369,7 +399,9 @@ export const BY_DAY: DayPoint[] = Array.from({ length: DAYS }, (_, dayIndex) => 
     p50: Math.round(percentile(latencies, 0.5)),
     p95: Math.round(percentile(latencies, 0.95)),
     p99: Math.round(percentile(latencies, 0.99)),
-    costUsd: Math.round(rows.reduce((sum, row) => sum + row.costUsd, 0) * 100) / 100,
+    costUsd: round4(rows.reduce((sum, row) => sum + row.costUsd, 0)),
+    costAssistantUsd: round4(rows.reduce((sum, row) => sum + row.costAssistantUsd, 0)),
+    costJudgeUsd: round4(rows.reduce((sum, row) => sum + row.costJudgeUsd, 0)),
     passRate:
       rows.length === 0
         ? 0
@@ -381,15 +413,35 @@ export const BY_DAY: DayPoint[] = Array.from({ length: DAYS }, (_, dayIndex) => 
 export interface Summary {
   count: number
   passRate: number
+  /** The blended final score — the weighted mix of the three below. */
   avgScore: number
+  /** Mean of the three components the final score is built from. */
+  components: {
+    rules: number
+    judge: number
+    /** null when nobody reviewed anything in this period. */
+    human: number | null
+  }
   hallucinationRate: number
   p95: number
   cost: number
+  costAssistant: number
+  costJudge: number
   blocked: number
   reviewed: number
   humanAgreement: number
   metrics: Record<MetricKey, number>
 }
+
+/** Weights the final score is blended with. Renormalised per answer when a component is missing. */
+export const WEIGHTS = { rules: 0.3, judge: 0.4, human: 0.3 } as const
+
+export const rulesScoreOf = (row: EvalRecord) =>
+  (row.ruleChecksPassed / row.ruleChecksTotal) * 100
+
+export const judgeScoreOf = (row: EvalRecord) =>
+  ((row.scores.correctness + row.scores.completeness + row.scores.faithfulness +
+    row.scores.relevancy) / 4) * 100
 
 export function summarise(rows: EvalRecord[]): Summary {
   const reviewed = rows.filter((row) => row.humanScore !== null)
@@ -400,11 +452,18 @@ export function summarise(rows: EvalRecord[]): Summary {
       ? (rows.filter((r) => r.verdict === 'pass').length / rows.length) * 100
       : 0,
     avgScore: mean(rows.map((row) => row.finalScore)),
+    components: {
+      rules: mean(rows.map(rulesScoreOf)),
+      judge: mean(rows.map(judgeScoreOf)),
+      human: reviewed.length === 0 ? null : mean(reviewed.map((row) => row.humanScore as number)),
+    },
     hallucinationRate: rows.length
       ? (rows.filter((row) => row.scores.faithfulness < 0.7).length / rows.length) * 100
       : 0,
     p95: percentile(latencies, 0.95),
     cost: rows.reduce((sum, row) => sum + row.costUsd, 0),
+    costAssistant: rows.reduce((sum, row) => sum + row.costAssistantUsd, 0),
+    costJudge: rows.reduce((sum, row) => sum + row.costJudgeUsd, 0),
     blocked: rows.filter((row) => row.verdict === 'blocked').length,
     reviewed: reviewed.length,
     humanAgreement: agreementRate(reviewed),

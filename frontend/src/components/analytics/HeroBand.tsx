@@ -51,6 +51,34 @@ export function HeroBand() {
   const delta = (pick: (value: typeof summary) => number) =>
     previousSummary === null ? null : pick(summary) - pick(previousSummary)
   const verdict = verdictFor(summary.avgScore)
+  const coverage = summary.count === 0 ? 0 : (summary.reviewed / summary.count) * 100
+
+  const components = [
+    {
+      label: 'Rule checks',
+      weight: '30%',
+      value: summary.components.rules,
+      colour: SERIES.faithfulness,
+      note: `17 deterministic checks on every one of the ${summary.count.toLocaleString()} answers`,
+    },
+    {
+      label: 'AI judge',
+      weight: '40%',
+      value: summary.components.judge,
+      colour: SERIES.correctness,
+      note: 'mean of correctness, completeness, faithfulness and relevancy',
+    },
+    {
+      label: 'Human review',
+      weight: '30%',
+      value: summary.components.human,
+      colour: SERIES.relevancy,
+      note:
+        summary.components.human === null
+          ? 'nobody reviewed an answer in this period'
+          : `${summary.reviewed} of ${summary.count.toLocaleString()} answers reviewed — ${coverage.toFixed(0)}% coverage`,
+    },
+  ]
 
   const stats = [
     {
@@ -90,7 +118,7 @@ export function HeroBand() {
       higherIsBetter: false,
       spark: spark.cost,
       colour: SERIES.correctness,
-      info: `Estimated spend on model calls over the selected ${lengthDays} days, covering both the assistant writing answers and the judge scoring them. The judge is usually the larger share, because it makes several calls per answer.`,
+      info: `Estimated spend on model calls over the selected ${lengthDays} days at Groq's published rates. The assistant writing the answers cost $${summary.costAssistant.toFixed(2)}; the judge scoring them cost $${summary.costJudge.toFixed(2)}, because it makes one call per metric and each one re-sends the question, the retrieved articles and the answer. Evaluation is the larger bill, which is the trade being made for the evidence on this page.`,
     },
     {
       label: 'Security blocks',
@@ -160,7 +188,52 @@ export function HeroBand() {
             </span>
           </div>
 
-          <dl className="mt-4 space-y-1 text-[13px]">
+          {/* The three scores the headline is blended from. Showing only the
+              blend invites "where did 90.6 come from?" every single time. */}
+          <div className="border-t border-line pt-3">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
+              Blended from three scores
+              <InfoPopover title="How the score is built" align="left">
+                Every answer is scored three ways, each out of 100. <strong>Rule checks</strong> —
+                how many of the 17 automated checks passed. <strong>AI judge</strong> — the mean
+                of its four metrics. <strong>Human review</strong> — a reviewer’s 1–5 rubric
+                converted to 100. The three are blended 30 / 40 / 30 to give the headline score.
+                Only {coverage.toFixed(0)}% of answers were reviewed by a person, and an answer is
+                never penalised for that: where a component is missing, the remaining weights are
+                renormalised, so most answers here are scored 43% rules and 57% judge.
+              </InfoPopover>
+            </p>
+
+            <ul className="mt-2 space-y-2">
+              {components.map((component) => (
+                <li key={component.label}>
+                  <div className="flex items-baseline justify-between gap-2 text-[13px]">
+                    <span className="text-ink">
+                      {component.label}
+                      <span className="tabular ml-1.5 text-[11px] text-ink-faint">
+                        {component.weight}
+                      </span>
+                    </span>
+                    <span className="tabular font-semibold text-ink">
+                      {component.value === null ? '—' : component.value.toFixed(1)}
+                    </span>
+                  </div>
+                  <div className="mt-1 h-1 rounded-full bg-raised">
+                    <div
+                      className="h-1 rounded-full"
+                      style={{
+                        width: `${component.value ?? 0}%`,
+                        background: component.colour,
+                      }}
+                    />
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-ink-faint">{component.note}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <dl className="mt-3 space-y-1 border-t border-line pt-3 text-[13px]">
             <div className="flex justify-between gap-3">
               <dt className="text-ink-muted">Answers evaluated</dt>
               <dd className="tabular font-medium text-ink">

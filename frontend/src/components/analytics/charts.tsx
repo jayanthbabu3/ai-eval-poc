@@ -309,11 +309,25 @@ export function CostTrend() {
         <CartesianGrid stroke={INK.grid} vertical={false} />
         <XAxis dataKey="label" tick={AXIS} stroke={INK.grid} interval={tickInterval(days.length)} />
         <YAxis tick={AXIS} stroke={INK.grid} width={64} unit="$" />
-        <Tooltip {...TOOLTIP} formatter={(value) => [`$${Number(value).toFixed(2)}`, 'Spend']} />
+        <Tooltip
+          {...TOOLTIP}
+          formatter={(value, name) => [`$${Number(value).toFixed(2)}`, String(name)]}
+        />
+        <Legend wrapperStyle={legendStyle} />
+        {/* Stacked, because the split is the point: judging an answer costs
+            several times more than writing it. */}
         <Bar
-          dataKey="costUsd"
-          name="Daily spend"
+          dataKey="costAssistantUsd"
+          stackId="cost"
+          name="Assistant"
           fill={SERIES.correctness}
+          isAnimationActive={false}
+        />
+        <Bar
+          dataKey="costJudgeUsd"
+          stackId="cost"
+          name="Judge"
+          fill={SERIES.completeness}
           radius={[4, 4, 0, 0]}
           isAnimationActive={false}
         />
