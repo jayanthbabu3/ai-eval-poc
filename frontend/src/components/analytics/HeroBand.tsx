@@ -47,7 +47,7 @@ function verdictFor(score: number) {
 }
 
 export function HeroBand() {
-  const { summary, previousSummary, spark, label, lengthDays, previousLabel } = useView()
+  const { summary, previousSummary, spark, lengthDays, previousLabel } = useView()
   const delta = (pick: (value: typeof summary) => number) =>
     previousSummary === null ? null : pick(summary) - pick(previousSummary)
   const verdict = verdictFor(summary.avgScore)
@@ -89,6 +89,7 @@ export function HeroBand() {
       unit: 'pp',
       spark: spark.passRate,
       colour: SERIES.faithfulness,
+      note: 'answers scoring 70 or above',
       info: 'The share of answers that reached our pass mark of 70 out of 100. "pp" means percentage points — a move from 96% to 98% is +2pp, not +2%.',
     },
     {
@@ -99,6 +100,7 @@ export function HeroBand() {
       unit: 'pp',
       spark: spark.faithfulness,
       colour: SERIES.completeness,
+      note: 'faithfulness below 0.70',
       info: 'The share of answers that made a claim the retrieved documents did not support — in other words, the assistant made something up. Measured as faithfulness scoring below 0.70. This is the number to watch most closely: a made-up IT policy sends staff down the wrong path.',
     },
     {
@@ -109,6 +111,7 @@ export function HeroBand() {
       unit: 's',
       spark: spark.p95,
       colour: SERIES.relevancy,
+      note: '19 in 20 answers were faster',
       info: 'p95 means the 95th percentile: 95 out of every 100 answers came back faster than this, and 5 were slower. We show it instead of the average because an average is dragged down by the fast majority and hides the slow tail — and the slow answers are the ones users actually notice and complain about.',
     },
     {
@@ -118,6 +121,7 @@ export function HeroBand() {
       higherIsBetter: false,
       spark: spark.cost,
       colour: SERIES.correctness,
+      note: `assistant $${summary.costAssistant.toFixed(2)} · judge $${summary.costJudge.toFixed(2)}`,
       info: `Estimated spend on model calls over the selected ${lengthDays} days at Groq's published rates. The assistant writing the answers cost $${summary.costAssistant.toFixed(2)}; the judge scoring them cost $${summary.costJudge.toFixed(2)}, because it makes one call per metric and each one re-sends the question, the retrieved articles and the answer. Evaluation is the larger bill, which is the trade being made for the evidence on this page.`,
     },
     {
@@ -127,6 +131,7 @@ export function HeroBand() {
       higherIsBetter: false,
       spark: spark.passRate,
       colour: STATUS.critical,
+      note: 'blocked regardless of score',
       info: 'Answers stopped by a failed security check — a leaked credential, exposed personal data, or obeying an instruction hidden in a user question. These are blocked outright regardless of how well they scored elsewhere, because a good answer does not cancel out a data leak.',
     },
     {
@@ -137,6 +142,7 @@ export function HeroBand() {
       unit: 'pp',
       spark: spark.score,
       colour: SERIES.faithfulness,
+      note: `on ${summary.reviewed} answers scored by both`,
       info: `How often the AI judge and a human reviewer put an answer on the same side of the pass mark, measured on the ${summary.reviewed} answers a person reviewed in this period. This is what justifies trusting the automated scores between human reviews. Below about 80% the judge would need recalibrating before anyone relied on it.`,
     },
   ]
@@ -167,6 +173,9 @@ export function HeroBand() {
               className={`rounded-full px-2 py-0.5 text-[12px] font-semibold ring-1 ${verdict.className}`}
             >
               {verdict.word}
+            </span>
+            <span className="flex items-center gap-1.5 text-[13px] text-ink-muted">
+              vs previous <Delta delta={delta((s) => s.avgScore)} higherIsBetter />
             </span>
           </div>
 
@@ -233,24 +242,6 @@ export function HeroBand() {
             </ul>
           </div>
 
-          <dl className="mt-3 space-y-1 border-t border-line pt-3 text-[13px]">
-            <div className="flex justify-between gap-3">
-              <dt className="text-ink-muted">Answers evaluated</dt>
-              <dd className="tabular font-medium text-ink">
-                {summary.count.toLocaleString()} over {lengthDays} days
-              </dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-ink-muted">Period</dt>
-              <dd className="tabular text-ink">{label}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-ink-muted">vs previous</dt>
-              <dd>
-                <Delta delta={delta((s) => s.avgScore)} higherIsBetter />
-              </dd>
-            </div>
-          </dl>
         </div>
 
         {/* Hairline-separated cells rather than nested cards — the chrome of a
@@ -274,9 +265,10 @@ export function HeroBand() {
                 </p>
                 <Delta delta={stat.delta} higherIsBetter={stat.higherIsBetter} unit={stat.unit} />
               </div>
-              <div className="mt-2">
-                <Sparkline data={stat.spark} colour={stat.colour} />
+              <div className="mt-3">
+                <Sparkline data={stat.spark} colour={stat.colour} height={56} />
               </div>
+              <p className="mt-2 text-[12px] text-ink-faint">{stat.note}</p>
             </div>
           ))}
         </div>
