@@ -99,11 +99,37 @@ export function HeroBand() {
       delta: delta((s) => s.hallucinationRate),
       higherIsBetter: false,
       unit: 'pp',
-      spark: spark.faithfulness,
+      spark: spark.hallucination,
       colour: SERIES.completeness,
-      note: 'judge’s faithfulness below 0.70',
+      note: `${summary.hallucinated} of ${summary.count.toLocaleString()} answers`,
       fmt: (v: number) => `${v.toFixed(1)}%`,
-      info: 'The share of answers that made a claim the retrieved documents did not support — in other words, the assistant made something up. Measured as faithfulness scoring below 0.70. This is the number to watch most closely: a made-up IT policy sends staff down the wrong path.',
+      info: (
+        <>
+          <p>
+            The assistant is only allowed to answer from the IT articles it retrieved. A
+            hallucination is when it states something those articles never said — inventing a
+            policy, a deadline, a portal name or a number that sounds entirely plausible.
+          </p>
+          <p className="mt-2">
+            <strong>How we detect it.</strong> The judge takes each claim in the answer and looks
+            for it in the retrieved articles, then returns a faithfulness score from 0 to 1. 1.00
+            means every claim was traceable to a source. We count an answer as hallucinating below{' '}
+            <strong>0.70</strong> — roughly a third of its claims could not be traced back.
+          </p>
+          <p className="mt-2">
+            <strong>Right now.</strong> {summary.hallucinationRate.toFixed(1)}% means{' '}
+            {summary.hallucinated} of {summary.count.toLocaleString()} answers made at least one
+            unsupported claim.
+          </p>
+          <p className="mt-2">
+            <strong>Why it matters most.</strong> A wrong answer about how long VPN approval takes
+            sends someone down a path that does not exist, and nothing about the answer looks
+            wrong — no error, no warning, same confident tone as a correct one. Every other number
+            here measures how well the assistant did its job; this one measures whether it can be
+            trusted at all.
+          </p>
+        </>
+      ),
     },
     {
       label: 'p95 latency',

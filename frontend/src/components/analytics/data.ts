@@ -369,6 +369,8 @@ export interface DayPoint {
   costJudgeUsd: number
   passRate: number
   blocked: number
+  /** Share of the day's answers that made a claim the sources did not support. */
+  hallucinationRate: number
   /** Answers a person reviewed that day, and how many the judge agreed with. */
   reviewed: number
   agreed: number
@@ -385,6 +387,12 @@ const round4 = (value: number) => Math.round(value * 10_000) / 10_000
 
 const mean = (values: number[]) =>
   values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length
+
+/**
+ * Faithfulness at or above this is treated as grounded. Below it, enough of the
+ * answer's claims could not be traced to a retrieved article to call it made up.
+ */
+export const HALLUCINATION_THRESHOLD = 0.7
 
 /** Weights the final score is blended with. Renormalised per answer when a component is missing. */
 export const WEIGHTS = { rules: 0.3, judge: 0.4, human: 0.3 } as const
@@ -422,6 +430,11 @@ export const BY_DAY: DayPoint[] = Array.from({ length: DAYS }, (_, dayIndex) => 
         : Math.round((rows.filter((row) => row.verdict === 'pass').length / rows.length) * 1000) /
           10,
     blocked: rows.filter((row) => row.verdict === 'blocked').length,
+    hallucinationRate:
+      rows.length === 0
+        ? 0
+        : Math.round((rows.filter((row) => row.scores.faithfulness < HALLUCINATION_THRESHOLD).length /
+            rows.length) * 1000) / 10,
     reviewed: rows.filter((row) => row.humanScore !== null).length,
     agreed: rows.filter((row) => row.humanScore !== null && judgeAgreesWithHuman(row)).length,
   }
@@ -453,6 +466,8 @@ export interface Summary {
   passRate: number
   /** The blended final score — the weighted mix of the three below. */
   avgScore: number
+  /** Count of answers that made an unsupported claim. */
+  hallucinated: number
   /** Mean of the three components the final score is built from. */
   components: {
     rules: number
@@ -486,8 +501,10 @@ export function summarise(rows: EvalRecord[]): Summary {
       judge: mean(rows.map(judgeScoreOf)),
       human: reviewed.length === 0 ? null : mean(reviewed.map((row) => row.humanScore as number)),
     },
+    hallucinated: rows.filter((row) => row.scores.faithfulness < HALLUCINATION_THRESHOLD).length,
     hallucinationRate: rows.length
-      ? (rows.filter((row) => row.scores.faithfulness < 0.7).length / rows.length) * 100
+      ? (rows.filter((row) => row.scores.faithfulness < HALLUCINATION_THRESHOLD).length /
+          rows.length) * 100
       : 0,
     p95: percentile(latencies, 0.95),
     cost: rows.reduce((sum, row) => sum + row.costUsd, 0),
@@ -561,7 +578,15 @@ export interface AnalyticsView {
     volume: number
   }[]
   spark: Record<
-    'volume' | 'passRate' | 'score' | 'faithfulness' | 'p95' | 'cost' | 'blocked' | 'agreement',
+    | 'volume'
+    | 'passRate'
+    | 'score'
+    | 'faithfulness'
+    | 'hallucination'
+    | 'p95'
+    | 'cost'
+    | 'blocked'
+    | 'agreement',
     { v: number }[]
   >
   insights: Insight[]
@@ -676,6 +701,7 @@ export function buildView(range: Range): AnalyticsView {
     p95: days.map((point) => ({ v: point.p95 })),
     cost: days.map((point) => ({ v: point.costUsd })),
     blocked: days.map((point) => ({ v: point.blocked })),
+    hallucination: days.map((point) => ({ v: point.hallucinationRate })),
     agreement: days.map((point) => ({ v: rollingAgreement(point.dayIndex) })),
   }
 
