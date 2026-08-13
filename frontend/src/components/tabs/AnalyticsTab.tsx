@@ -12,7 +12,7 @@ import {
   VersionComparison,
 } from '../analytics/charts'
 import { EvaluationsTable, Insights, TOTAL_RECORDS, TopicHeatmap } from '../analytics/panels'
-import { DAYS, FIRST_DATE, LAST_DATE } from '../analytics/data'
+import { DAYS, FIRST_DATE, LAST_DATE, QUESTION_COUNT, TOPICS } from '../analytics/data'
 import { SERIES, STATUS } from '../analytics/palette'
 import { Panel, SectionLabel } from '../analytics/Panel'
 import { HeroBand } from '../analytics/HeroBand'
@@ -53,9 +53,10 @@ function AnalyticsBody() {
         <AlertIcon className="mt-0.5 shrink-0" />
         <span>
           <strong>Sample data.</strong> {TOTAL_RECORDS.toLocaleString()} evaluations across {DAYS}{' '}
-          days ({FIRST_DATE} to {LAST_DATE}), generated in code to show the reporting we would
-          build once connected to live traffic. They are not measured results from a running
-          system.
+          days ({FIRST_DATE} to {LAST_DATE}), drawn from {QUESTION_COUNT} distinct questions over{' '}
+          {TOPICS.length} topics, generated in code to show the reporting we would build once
+          connected to live traffic. They are not measured results from a running system, and a
+          real deployment would see far more question variety than {QUESTION_COUNT}.
         </span>
       </div>
 
