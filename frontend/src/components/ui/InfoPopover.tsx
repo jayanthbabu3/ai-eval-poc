@@ -13,12 +13,15 @@ export function InfoPopover({
   children,
   align = 'right',
   label = 'What does this mean?',
+  tone = 'light',
 }: {
   title: string
   children: ReactNode
   /** Which edge the panel hangs from. Use "left" for triggers near the right edge. */
   align?: 'left' | 'right'
   label?: string
+  /** "dark" for triggers sitting on the dark hero band, where ink-on-white fails. */
+  tone?: 'light' | 'dark'
 }) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLSpanElement>(null)
@@ -56,7 +59,9 @@ export function InfoPopover({
         className={`inline-flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full border text-[11px] font-bold leading-none transition-colors duration-200 ${
           open
             ? 'border-brand bg-brand text-white'
-            : 'border-line-strong text-ink-faint hover:border-brand hover:text-brand'
+            : tone === 'dark'
+              ? 'border-white/35 text-white/70 hover:border-white hover:text-white'
+              : 'border-line-strong text-ink-faint hover:border-brand hover:text-brand'
         }`}
       >
         i

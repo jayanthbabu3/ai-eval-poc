@@ -24,18 +24,12 @@ import {
   YAxis,
   ZAxis,
 } from 'recharts'
-import {
-  AGREEMENT_POINTS,
-  BY_DAY,
-  DEPLOYS,
-  DISTRIBUTION,
-  FAILURES,
-  LATENCY_QUALITY,
-  SUMMARY,
-  SUMMARY_PREVIOUS,
-  VERSIONS,
-} from './data'
 import { AXIS, INK, SERIES, SERIES_ORDER, STATUS, TOOLTIP } from './palette'
+import { dateFor, formatDate } from './data'
+import { useView } from './view'
+
+/** The x-axis category for a given day, so deploy markers land on the right tick. */
+const dayLabel = (dayIndex: number) => formatDate(dateFor(dayIndex))
 
 const METRIC_LABEL: Record<string, string> = {
   correctness: 'Correctness',
@@ -76,11 +70,15 @@ export function Sparkline({ data, colour }: { data: { v: number }[]; colour: str
 
 // ----------------------------------------------------------- quality trend
 
+/** Roughly eight readable ticks whatever the selected period length. */
+const tickInterval = (points: number) => Math.max(0, Math.floor(points / 8))
+
 /**
- * The chart that earns the dashboard. Four metrics over 30 days with deploy
- * markers, so a regression is visible rather than inferred.
+ * The chart that earns the dashboard. Four metrics across the selected period
+ * with deploy markers, so a regression is visible rather than inferred.
  */
 export function QualityTrend() {
+  const view = useView()
   const [hidden, setHidden] = useState<Set<string>>(new Set())
 
   const toggle = (key: string) =>
@@ -94,9 +92,14 @@ export function QualityTrend() {
   return (
     <>
       <ResponsiveContainer width="100%" height={320}>
-        <LineChart data={BY_DAY} margin={{ top: 24, right: 16, left: -18, bottom: 0 }}>
+        <LineChart data={view.days} margin={{ top: 24, right: 16, left: -18, bottom: 0 }}>
           <CartesianGrid stroke={INK.grid} vertical={false} />
-          <XAxis dataKey="label" tick={AXIS} stroke={INK.grid} interval={4} />
+          <XAxis
+            dataKey="label"
+            tick={AXIS}
+            stroke={INK.grid}
+            interval={tickInterval(view.days.length)}
+          />
           <YAxis domain={[60, 100]} tick={AXIS} stroke={INK.grid} />
           <Tooltip
             {...TOOLTIP}
@@ -107,17 +110,19 @@ export function QualityTrend() {
           />
 
           {/* The degraded window, shaded so the eye lands on it first. */}
-          <ReferenceArea
-            x1={BY_DAY[18]?.label}
-            x2={BY_DAY[24]?.label}
-            fill={STATUS.critical}
-            fillOpacity={0.05}
-          />
+          {view.degraded && (
+            <ReferenceArea
+              x1={view.degraded.fromLabel}
+              x2={view.degraded.toLabel}
+              fill={STATUS.critical}
+              fillOpacity={0.05}
+            />
+          )}
 
-          {DEPLOYS.map((deploy) => (
+          {view.deploys.map((deploy) => (
             <ReferenceLine
               key={deploy.label}
-              x={BY_DAY[deploy.dayIndex]?.label}
+              x={dayLabel(deploy.dayIndex)}
               stroke={deploy.kind === 'regression' ? STATUS.critical : INK.muted}
               strokeDasharray="4 3"
               label={{
@@ -156,7 +161,10 @@ export function QualityTrend() {
       </ResponsiveContainer>
 
       <p className="mt-1 text-[13px] text-ink-faint">
-        Click a legend entry to isolate a metric. The shaded band is the seven days v2.3 was live.
+        {view.days.length} days, {view.label}. Click a legend entry to isolate a metric.
+        {view.degraded
+          ? ' The shaded band is the period the regressed release was live.'
+          : ' No release regression falls inside this period.'}
       </p>
     </>
   )
@@ -166,9 +174,11 @@ export function QualityTrend() {
 
 /** Averages hide shape. A histogram shows whether 84 means "mostly 84". */
 export function ScoreDistribution() {
+  const { distribution } = useView()
+
   return (
     <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={DISTRIBUTION} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
+      <BarChart data={distribution} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
         <CartesianGrid stroke={INK.grid} vertical={false} />
         <XAxis dataKey="bucket" tick={AXIS} stroke={INK.grid} interval={0} />
         <YAxis tick={AXIS} stroke={INK.grid} allowDecimals={false} />
@@ -180,7 +190,7 @@ export function ScoreDistribution() {
           label={{ value: 'pass mark', position: 'top', fill: INK.secondary, fontSize: 12 }}
         />
         <Bar dataKey="count" radius={[4, 4, 0, 0]} isAnimationActive={false}>
-          {DISTRIBUTION.map((entry) => (
+          {distribution.map((entry) => (
             <Cell
               key={entry.bucket}
               fill={entry.low < 70 ? STATUS.critical : SERIES.correctness}
@@ -195,11 +205,17 @@ export function ScoreDistribution() {
 // -------------------------------------------------------------- failures
 
 export function FailureBars({ onSelect }: { onSelect: (name: string) => void }) {
-  const worst = Math.max(...FAILURES.map((entry) => entry.count))
+  const { failures } = useView()
+
+  if (failures.length === 0) {
+    return <p className="text-[14px] text-ink-muted">No rule check failed in this period.</p>
+  }
+
+  const worst = Math.max(...failures.map((entry) => entry.count))
 
   return (
     <ul className="space-y-1.5">
-      {FAILURES.map((failure) => {
+      {failures.map((failure) => {
         const isSecurity = failure.group === 'security'
         return (
           <li key={failure.raw}>
@@ -238,11 +254,13 @@ export function FailureBars({ onSelect }: { onSelect: (name: string) => void }) 
  * the tail is not — an average would hide exactly that.
  */
 export function LatencyBands() {
+  const { days } = useView()
+
   return (
     <ResponsiveContainer width="100%" height={240}>
-      <AreaChart data={BY_DAY} margin={{ top: 8, right: 16, left: -12, bottom: 0 }}>
+      <AreaChart data={days} margin={{ top: 8, right: 16, left: -12, bottom: 0 }}>
         <CartesianGrid stroke={INK.grid} vertical={false} />
-        <XAxis dataKey="label" tick={AXIS} stroke={INK.grid} interval={4} />
+        <XAxis dataKey="label" tick={AXIS} stroke={INK.grid} interval={tickInterval(days.length)} />
         <YAxis tick={AXIS} stroke={INK.grid} unit="ms" width={64} />
         <Tooltip {...TOOLTIP} formatter={(value, name) => [`${value} ms`, String(name)]} />
         <Legend wrapperStyle={legendStyle} />
@@ -283,11 +301,13 @@ export function LatencyBands() {
 
 /** Cost is its own chart — never a second axis on the latency plot. */
 export function CostTrend() {
+  const { days } = useView()
+
   return (
     <ResponsiveContainer width="100%" height={240}>
-      <BarChart data={BY_DAY} margin={{ top: 8, right: 16, left: -12, bottom: 0 }}>
+      <BarChart data={days} margin={{ top: 8, right: 16, left: -12, bottom: 0 }}>
         <CartesianGrid stroke={INK.grid} vertical={false} />
-        <XAxis dataKey="label" tick={AXIS} stroke={INK.grid} interval={4} />
+        <XAxis dataKey="label" tick={AXIS} stroke={INK.grid} interval={tickInterval(days.length)} />
         <YAxis tick={AXIS} stroke={INK.grid} width={64} unit="$" />
         <Tooltip {...TOOLTIP} formatter={(value) => [`$${Number(value).toFixed(2)}`, 'Spend']} />
         <Bar
@@ -306,6 +326,7 @@ export function CostTrend() {
 
 /** Does slower mean better? Colour is state here, so it uses status tokens. */
 export function LatencyVsQuality() {
+  const { latencyQuality } = useView()
   const groups = [
     { key: 'pass', label: 'Passed', colour: STATUS.good },
     { key: 'fail', label: 'Failed', colour: STATUS.serious },
@@ -339,7 +360,7 @@ export function LatencyVsQuality() {
           <Scatter
             key={group.key}
             name={group.label}
-            data={LATENCY_QUALITY.filter((point) => point.verdict === group.key)}
+            data={latencyQuality.filter((point) => point.verdict === group.key)}
             fill={group.colour}
             fillOpacity={0.65}
             isAnimationActive={false}
@@ -355,9 +376,11 @@ export function LatencyVsQuality() {
  * whether any of the automated numbers can be trusted.
  */
 export function JudgeVsHuman() {
+  const { agreementPoints } = useView()
+
   return (
     <>
-      <ResponsiveContainer width="100%" height={280}>
+      <ResponsiveContainer width="100%" height={342}>
         <ScatterChart margin={{ top: 8, right: 16, left: -12, bottom: 8 }}>
           <CartesianGrid stroke={INK.grid} />
           <XAxis
@@ -391,18 +414,17 @@ export function JudgeVsHuman() {
           <ReferenceLine y={70} stroke={STATUS.warning} strokeDasharray="3 3" />
           <Scatter
             name="Reviewed answers"
-            data={AGREEMENT_POINTS}
+            data={agreementPoints}
             fill={SERIES.correctness}
             fillOpacity={0.6}
             isAnimationActive={false}
           />
         </ScatterChart>
       </ResponsiveContainer>
-      <p className="mt-1 text-[13px] text-ink-faint">
-        Each dot is an answer scored by both. Points on the dashed diagonal are perfect agreement;
-        the amber lines mark the pass threshold. Dots in the top-left are answers the judge was
-        harsher on than a person — the bottom-right is the dangerous quadrant, where the judge
-        passed something a human would not.
+      <p className="mt-2 text-[13px] leading-relaxed text-ink-faint">
+        Dots on the dashed diagonal are perfect agreement; the amber lines mark the pass
+        threshold. Top-left is where the judge was harsher than a person; bottom-right is the
+        dangerous quadrant, where the judge passed something a human would not.
       </p>
     </>
   )
@@ -410,12 +432,13 @@ export function JudgeVsHuman() {
 
 // ----------------------------------------------------------------- profile
 
-/** Current week against the previous — two series, so a legend is required. */
+/** Selected period against the one before — two series, so a legend is required. */
 export function MetricProfile() {
+  const { summary, previousSummary, lengthDays, previousLabel } = useView()
   const data = SERIES_ORDER.map((key) => ({
     metric: METRIC_LABEL[key],
-    current: Math.round(SUMMARY.metrics[key] * 10) / 10,
-    previous: Math.round(SUMMARY_PREVIOUS.metrics[key] * 10) / 10,
+    current: Math.round(summary.metrics[key] * 10) / 10,
+    previous: previousSummary ? Math.round(previousSummary.metrics[key] * 10) / 10 : null,
   }))
 
   return (
@@ -427,17 +450,19 @@ export function MetricProfile() {
           <PolarRadiusAxis domain={[60, 100]} tick={AXIS} axisLine={false} />
           <Tooltip {...TOOLTIP} />
           <Legend wrapperStyle={legendStyle} />
+          {previousSummary && (
+            <Radar
+              name={`Previous ${lengthDays} days`}
+              dataKey="previous"
+              stroke={INK.muted}
+              fill={INK.muted}
+              fillOpacity={0.1}
+              strokeWidth={2}
+              isAnimationActive={false}
+            />
+          )}
           <Radar
-            name="Previous 7 days"
-            dataKey="previous"
-            stroke={INK.muted}
-            fill={INK.muted}
-            fillOpacity={0.1}
-            strokeWidth={2}
-            isAnimationActive={false}
-          />
-          <Radar
-            name="Last 7 days"
+            name={`Selected ${lengthDays} days`}
             dataKey="current"
             stroke={SERIES.correctness}
             fill={SERIES.correctness}
@@ -454,31 +479,41 @@ export function MetricProfile() {
         <thead>
           <tr className="text-[12px] uppercase tracking-wider text-ink-faint">
             <th scope="col" className="py-1 font-medium">Metric</th>
-            <th scope="col" className="py-1 font-medium">Last 7 days</th>
+            <th scope="col" className="py-1 font-medium">Selected</th>
             <th scope="col" className="py-1 font-medium">Previous</th>
             <th scope="col" className="py-1 font-medium">Change</th>
           </tr>
         </thead>
         <tbody className="tabular">
           {data.map((row) => {
-            const delta = row.current - row.previous
+            const delta = row.previous === null ? null : row.current - row.previous
             return (
               <tr key={row.metric} className="border-t border-line">
                 <td className="py-1.5 text-ink">{row.metric}</td>
                 <td className="py-1.5 text-ink">{row.current.toFixed(1)}</td>
-                <td className="py-1.5 text-ink-muted">{row.previous.toFixed(1)}</td>
-                <td
-                  className="py-1.5 font-semibold"
-                  style={{ color: delta >= 0 ? STATUS.good : STATUS.critical }}
-                >
-                  {delta >= 0 ? '+' : ''}
-                  {delta.toFixed(1)}
+                <td className="py-1.5 text-ink-muted">
+                  {row.previous === null ? '—' : row.previous.toFixed(1)}
                 </td>
+                {delta === null ? (
+                  <td className="py-1.5 text-ink-faint">no earlier period</td>
+                ) : (
+                  <td
+                    className="py-1.5 font-semibold"
+                    style={{ color: delta >= 0 ? STATUS.good : STATUS.critical }}
+                  >
+                    {delta >= 0 ? '+' : ''}
+                    {delta.toFixed(1)}
+                  </td>
+                )}
               </tr>
             )
           })}
         </tbody>
       </table>
+
+      <p className="mt-1.5 text-[13px] text-ink-faint">
+        {previousLabel ? `Previous period is ${previousLabel}.` : 'No earlier period of equal length exists in the sample data.'}
+      </p>
     </>
   )
 }
@@ -486,9 +521,20 @@ export function MetricProfile() {
 // -------------------------------------------------------------- versions
 
 export function VersionComparison() {
+  const { versions } = useView()
+
+  if (versions.length < 2) {
+    return (
+      <p className="text-[14px] text-ink-muted">
+        Only one release ran inside this period, so there is nothing to compare. Widen the date
+        range to see releases side by side.
+      </p>
+    )
+  }
+
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={VERSIONS} margin={{ top: 8, right: 16, left: -18, bottom: 0 }}>
+      <BarChart data={versions} margin={{ top: 8, right: 16, left: -18, bottom: 0 }}>
         <CartesianGrid stroke={INK.grid} vertical={false} />
         <XAxis dataKey="version" tick={AXIS} stroke={INK.grid} />
         <YAxis domain={[60, 100]} tick={AXIS} stroke={INK.grid} />

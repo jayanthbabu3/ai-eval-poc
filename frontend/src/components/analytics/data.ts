@@ -1,11 +1,17 @@
 /**
- * Simulated evaluation history — 30 days of production-style data.
+ * Simulated evaluation history — 60 days of production-style data.
  *
  * Deliberately imperfect. A flat, healthy dataset makes a dashboard look
  * impressive and teaches nothing; this one carries a regression introduced by a
- * fake deploy on day 18 and recovered by a hotfix on day 25, a slow tail, a
- * weak topic, and a handful of security blocks — because the whole point of the
- * reporting is spotting exactly those things.
+ * fake deploy and recovered by a hotfix a week later, a slow tail, a weak topic,
+ * and a handful of security blocks — because the whole point of the reporting is
+ * spotting exactly those things.
+ *
+ * Sixty days rather than thirty so that the default "last 30 days" view always
+ * has a full previous 30 days to compare against. Every number on the page is
+ * derived from one selected range via `buildView()` — nothing is pinned to its
+ * own private window, because a dashboard where one card means seven days and
+ * the next means thirty cannot be reasoned about.
  *
  * Seeded so every reload shows the same numbers. A dashboard whose figures move
  * when you refresh is not a dashboard anyone can discuss.
@@ -37,7 +43,11 @@ function gaussian(mean: number, deviation: number): number {
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
 
-export const DAYS = 30
+export const DAYS = 60
+
+/** Day 0. The last day is DAYS-1, i.e. 2026-08-12. */
+const START_DATE = '2026-06-14'
+
 export const TOPICS = [
   'Network',
   'Identity',
@@ -56,15 +66,15 @@ export interface Deploy {
 }
 
 export const DEPLOYS: Deploy[] = [
-  { dayIndex: 6, label: 'v2.1', note: 'Prompt tidy-up. No measurable effect.', kind: 'neutral' },
+  { dayIndex: 34, label: 'v2.1', note: 'Prompt tidy-up. No measurable effect.', kind: 'neutral' },
   {
-    dayIndex: 18,
+    dayIndex: 42,
     label: 'v2.3',
     note: 'Retrieval depth cut from 3 articles to 2 to reduce cost. Faithfulness fell sharply.',
     kind: 'regression',
   },
   {
-    dayIndex: 25,
+    dayIndex: 49,
     label: 'v2.3.1',
     note: 'Retrieval depth restored after the drop was caught here.',
     kind: 'fix',
@@ -113,12 +123,12 @@ const QUESTIONS: Record<Topic, string[]> = {
 }
 
 const RULE_CHECKS = [
-  { name: 'citation_present', group: 'grounding', weight: 0.30 },
+  { name: 'citation_present', group: 'grounding', weight: 0.3 },
   { name: 'numeric_grounding', group: 'grounding', weight: 0.16 },
   { name: 'citations_were_retrieved', group: 'grounding', weight: 0.08 },
   { name: 'no_hedging', group: 'format', weight: 0.18 },
   { name: 'response_length', group: 'format', weight: 0.12 },
-  { name: 'required_keywords', group: 'format', weight: 0.10 },
+  { name: 'required_keywords', group: 'format', weight: 0.1 },
   { name: 'latency', group: 'performance', weight: 0.09 },
   { name: 'token_budget', group: 'performance', weight: 0.05 },
   { name: 'forbidden_terms', group: 'security', weight: 0.02 },
@@ -149,17 +159,76 @@ export interface EvalRecord {
 
 /** Health multiplier for a given day — this is where the regression lives. */
 function dayHealth(dayIndex: number): { shift: number; faithShift: number; version: string } {
-  if (dayIndex < 6) return { shift: 0, faithShift: 0, version: 'v2.0' }
-  if (dayIndex < 18) return { shift: 0.01, faithShift: 0.01, version: 'v2.1' }
-  if (dayIndex < 25) return { shift: -0.06, faithShift: -0.17, version: 'v2.3' }
+  if (dayIndex < 34) return { shift: 0, faithShift: 0, version: 'v2.0' }
+  if (dayIndex < 42) return { shift: 0.01, faithShift: 0.01, version: 'v2.1' }
+  if (dayIndex < 49) return { shift: -0.06, faithShift: -0.17, version: 'v2.3' }
   return { shift: 0.02, faithShift: 0.02, version: 'v2.3.1' }
 }
 
-function dateFor(dayIndex: number): string {
-  const start = new Date('2026-07-14T00:00:00Z')
+// -------------------------------------------------------------- date helpers
+
+export function dateFor(dayIndex: number): string {
+  const start = new Date(`${START_DATE}T00:00:00Z`)
   const date = new Date(start.getTime() + dayIndex * 86_400_000)
   return date.toISOString().slice(0, 10)
 }
+
+export const FIRST_DATE = dateFor(0)
+export const LAST_DATE = dateFor(DAYS - 1)
+
+/** ISO date → day index, clamped to the dataset. */
+export function dayIndexOf(iso: string): number {
+  const start = new Date(`${START_DATE}T00:00:00Z`).getTime()
+  const target = new Date(`${iso}T00:00:00Z`).getTime()
+  if (Number.isNaN(target)) return 0
+  return Math.min(DAYS - 1, Math.max(0, Math.round((target - start) / 86_400_000)))
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** "14 Jul" — short enough for a chart axis, unambiguous for a reader. */
+export function formatDate(iso: string): string {
+  const [, month, day] = iso.split('-')
+  return `${Number(day)} ${MONTHS[Number(month) - 1]}`
+}
+
+export interface Range {
+  /** Inclusive day index. */
+  startDay: number
+  /** Inclusive day index. */
+  endDay: number
+}
+
+export const rangeLength = (range: Range) => range.endDay - range.startDay + 1
+
+/** "14 Jul – 12 Aug 2026". The year appears once, at the end. */
+export function formatRange(range: Range): string {
+  const from = dateFor(range.startDay)
+  const to = dateFor(range.endDay)
+  return `${formatDate(from)} – ${formatDate(to)} ${to.slice(0, 4)}`
+}
+
+/** The last n days of the dataset. */
+export function lastNDays(n: number): Range {
+  return { startDay: Math.max(0, DAYS - n), endDay: DAYS - 1 }
+}
+
+/**
+ * The equal-length window immediately before the selected one.
+ *
+ * Returns null when the dataset does not reach back far enough — better to say
+ * "no earlier period" than to compare against a shorter window and pretend the
+ * difference means something.
+ */
+export function previousOf(range: Range): Range | null {
+  const length = rangeLength(range)
+  const endDay = range.startDay - 1
+  const startDay = endDay - length + 1
+  if (startDay < 0) return null
+  return { startDay, endDay }
+}
+
+// ------------------------------------------------------------------ records
 
 function buildRecords(): EvalRecord[] {
   const records: EvalRecord[] = []
@@ -183,10 +252,10 @@ function buildRecords(): EvalRecord[] {
         const scores = {
           correctness: clamp01(gaussian(0.88 + profile.base + health.shift, 0.09)),
           completeness: clamp01(
-            gaussian(0.85 + profile.base + profile.completeness + health.shift, 0.10),
+            gaussian(0.85 + profile.base + profile.completeness + health.shift, 0.1),
           ),
           faithfulness: clamp01(gaussian(0.94 + profile.base + health.faithShift, 0.07)),
-          relevancy: clamp01(gaussian(0.90 + profile.base + health.shift, 0.08)),
+          relevancy: clamp01(gaussian(0.9 + profile.base + health.shift, 0.08)),
         }
 
         // Rule failures correlate with low scores rather than firing at random.
@@ -218,9 +287,7 @@ function buildRecords(): EvalRecord[] {
           weightTotal
 
         const slow = random() < 0.06
-        const latencyMs = Math.round(
-          Math.max(220, gaussian(slow ? 4200 : 780, slow ? 1500 : 260)),
-        )
+        const latencyMs = Math.round(Math.max(220, gaussian(slow ? 4200 : 780, slow ? 1500 : 260)))
         const promptTokens = Math.round(gaussian(920, 180))
         const completionTokens = Math.round(gaussian(140, 45))
 
@@ -285,13 +352,14 @@ function percentile(values: number[], fraction: number): number {
 const mean = (values: number[]) =>
   values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length
 
+/** Every day in the dataset, pre-rolled. Range selection slices this. */
 export const BY_DAY: DayPoint[] = Array.from({ length: DAYS }, (_, dayIndex) => {
   const rows = RECORDS.filter((record) => record.dayIndex === dayIndex)
   const latencies = rows.map((row) => row.latencyMs)
   return {
     day: dateFor(dayIndex),
     dayIndex,
-    label: dateFor(dayIndex).slice(5),
+    label: formatDate(dateFor(dayIndex)),
     correctness: Math.round(mean(rows.map((row) => row.scores.correctness)) * 1000) / 10,
     completeness: Math.round(mean(rows.map((row) => row.scores.completeness)) * 1000) / 10,
     faithfulness: Math.round(mean(rows.map((row) => row.scores.faithfulness)) * 1000) / 10,
@@ -310,18 +378,27 @@ export const BY_DAY: DayPoint[] = Array.from({ length: DAYS }, (_, dayIndex) => 
   }
 })
 
-/** Current period is the last 7 days; previous is the 7 before it. */
-export const CURRENT = RECORDS.filter((record) => record.dayIndex >= DAYS - 7)
-export const PREVIOUS = RECORDS.filter(
-  (record) => record.dayIndex >= DAYS - 14 && record.dayIndex < DAYS - 7,
-)
+export interface Summary {
+  count: number
+  passRate: number
+  avgScore: number
+  hallucinationRate: number
+  p95: number
+  cost: number
+  blocked: number
+  reviewed: number
+  humanAgreement: number
+  metrics: Record<MetricKey, number>
+}
 
-export function summarise(rows: EvalRecord[]) {
+export function summarise(rows: EvalRecord[]): Summary {
   const reviewed = rows.filter((row) => row.humanScore !== null)
   const latencies = rows.map((row) => row.latencyMs)
   return {
     count: rows.length,
-    passRate: rows.length ? (rows.filter((r) => r.verdict === 'pass').length / rows.length) * 100 : 0,
+    passRate: rows.length
+      ? (rows.filter((r) => r.verdict === 'pass').length / rows.length) * 100
+      : 0,
     avgScore: mean(rows.map((row) => row.finalScore)),
     hallucinationRate: rows.length
       ? (rows.filter((row) => row.scores.faithfulness < 0.7).length / rows.length) * 100
@@ -350,116 +427,238 @@ function agreementRate(reviewed: EvalRecord[]): number {
   return (agreed.length / reviewed.length) * 100
 }
 
-export const SUMMARY = summarise(CURRENT)
-export const SUMMARY_PREVIOUS = summarise(PREVIOUS)
-
-/** Score histogram, 10-point buckets. */
-export const DISTRIBUTION = Array.from({ length: 10 }, (_, bucket) => {
-  const low = bucket * 10
-  const rows = CURRENT.filter((row) => row.finalScore >= low && row.finalScore < low + 10)
-  return { bucket: `${low}-${low + 9}`, low, count: rows.length }
-})
-
-/** Topic × metric matrix for the heatmap. */
-export const TOPIC_MATRIX = TOPICS.map((topic) => {
-  const rows = CURRENT.filter((record) => record.topic === topic)
-  return {
-    topic,
-    volume: rows.length,
-    correctness: Math.round(mean(rows.map((r) => r.scores.correctness)) * 1000) / 10,
-    completeness: Math.round(mean(rows.map((r) => r.scores.completeness)) * 1000) / 10,
-    faithfulness: Math.round(mean(rows.map((r) => r.scores.faithfulness)) * 1000) / 10,
-    relevancy: Math.round(mean(rows.map((r) => r.scores.relevancy)) * 1000) / 10,
-  }
-})
-
-/** Which checks fail, and how often, over the current period. */
-export const FAILURES = RULE_CHECKS.map((check) => {
-  const count = CURRENT.filter((row) =>
-    row.ruleFailures.some((failure) => failure.name === check.name),
-  ).length
-  return {
-    name: check.name.replace(/_/g, ' '),
-    raw: check.name,
-    group: check.group,
-    count,
-    rate: CURRENT.length ? (count / CURRENT.length) * 100 : 0,
-  }
-})
-  .filter((entry) => entry.count > 0)
-  .sort((a, b) => b.count - a.count)
-
-/** Judge score against human score, for the answers a person reviewed. */
-export const AGREEMENT_POINTS = RECORDS.filter((row) => row.humanScore !== null).map((row) => ({
-  judge: Math.round(((row.scores.correctness + row.scores.completeness) / 2) * 1000) / 10,
-  human: row.humanScore as number,
-  topic: row.topic,
-  id: row.id,
-}))
-
-/** Latency against quality — answers the "is slower better?" question. */
-export const LATENCY_QUALITY = CURRENT.filter((_, index) => index % 2 === 0).map((row) => ({
-  latency: row.latencyMs,
-  score: row.finalScore,
-  verdict: row.verdict,
-  id: row.id,
-}))
-
-export const VERSIONS = ['v2.0', 'v2.1', 'v2.3', 'v2.3.1'].map((version) => {
-  const rows = RECORDS.filter((record) => record.version === version)
-  return {
-    version,
-    correctness: Math.round(mean(rows.map((r) => r.scores.correctness)) * 1000) / 10,
-    completeness: Math.round(mean(rows.map((r) => r.scores.completeness)) * 1000) / 10,
-    faithfulness: Math.round(mean(rows.map((r) => r.scores.faithfulness)) * 1000) / 10,
-    relevancy: Math.round(mean(rows.map((r) => r.scores.relevancy)) * 1000) / 10,
-    volume: rows.length,
-  }
-})
-
-/** Sparkline series for the KPI tiles — last 14 days. */
-export const SPARK = {
-  volume: BY_DAY.slice(-14).map((point) => ({ v: point.volume })),
-  passRate: BY_DAY.slice(-14).map((point) => ({ v: point.passRate })),
-  score: BY_DAY.slice(-14).map((point) => ({ v: point.finalScore })),
-  faithfulness: BY_DAY.slice(-14).map((point) => ({ v: point.faithfulness })),
-  p95: BY_DAY.slice(-14).map((point) => ({ v: point.p95 })),
-  cost: BY_DAY.slice(-14).map((point) => ({ v: point.costUsd })),
-}
-
 export interface Insight {
   tone: 'critical' | 'warning' | 'good'
   headline: string
   detail: string
 }
 
+export interface FailureRow {
+  name: string
+  raw: string
+  group: string
+  count: number
+  rate: number
+}
+
+/** Everything on the Analytics tab, derived from one selected range. */
+export interface AnalyticsView {
+  range: Range
+  lengthDays: number
+  label: string
+  previousRange: Range | null
+  previousLabel: string | null
+  days: DayPoint[]
+  rows: EvalRecord[]
+  summary: Summary
+  previousSummary: Summary | null
+  deploys: Deploy[]
+  /** The window a regression deploy was live, if one falls inside the range. */
+  degraded: { fromLabel: string; toLabel: string } | null
+  distribution: { bucket: string; low: number; count: number }[]
+  topicMatrix: {
+    topic: Topic
+    volume: number
+    correctness: number
+    completeness: number
+    faithfulness: number
+    relevancy: number
+  }[]
+  failures: FailureRow[]
+  latencyQuality: { latency: number; score: number; verdict: string; id: string }[]
+  agreementPoints: { judge: number; human: number; topic: Topic; id: string }[]
+  versions: {
+    version: string
+    correctness: number
+    completeness: number
+    faithfulness: number
+    relevancy: number
+    volume: number
+  }[]
+  spark: Record<'volume' | 'passRate' | 'score' | 'faithfulness' | 'p95' | 'cost', { v: number }[]>
+  insights: Insight[]
+}
+
+const inRange = (record: EvalRecord, range: Range) =>
+  record.dayIndex >= range.startDay && record.dayIndex <= range.endDay
+
+export function buildView(range: Range): AnalyticsView {
+  const rows = RECORDS.filter((record) => inRange(record, range))
+  const days = BY_DAY.slice(range.startDay, range.endDay + 1)
+  const previousRange = previousOf(range)
+  const previousRows = previousRange
+    ? RECORDS.filter((record) => inRange(record, previousRange))
+    : []
+
+  const summary = summarise(rows)
+  const previousSummary = previousRange ? summarise(previousRows) : null
+
+  const deploys = DEPLOYS.filter(
+    (deploy) => deploy.dayIndex >= range.startDay && deploy.dayIndex <= range.endDay,
+  )
+
+  const regression = deploys.find((deploy) => deploy.kind === 'regression')
+  const recovery = regression
+    ? DEPLOYS.find((deploy) => deploy.dayIndex > regression.dayIndex)
+    : undefined
+  const degraded = regression
+    ? {
+        fromLabel: BY_DAY[regression.dayIndex].label,
+        toLabel:
+          BY_DAY[Math.min(range.endDay, (recovery?.dayIndex ?? range.endDay + 1) - 1)].label,
+      }
+    : null
+
+  const distribution = Array.from({ length: 10 }, (_, bucket) => {
+    const low = bucket * 10
+    return {
+      bucket: `${low}-${low + 9}`,
+      low,
+      count: rows.filter((row) => row.finalScore >= low && row.finalScore < low + 10).length,
+    }
+  })
+
+  const topicMatrix = TOPICS.map((topic) => {
+    const topicRows = rows.filter((record) => record.topic === topic)
+    return {
+      topic,
+      volume: topicRows.length,
+      correctness: Math.round(mean(topicRows.map((r) => r.scores.correctness)) * 1000) / 10,
+      completeness: Math.round(mean(topicRows.map((r) => r.scores.completeness)) * 1000) / 10,
+      faithfulness: Math.round(mean(topicRows.map((r) => r.scores.faithfulness)) * 1000) / 10,
+      relevancy: Math.round(mean(topicRows.map((r) => r.scores.relevancy)) * 1000) / 10,
+    }
+  })
+
+  const failures: FailureRow[] = RULE_CHECKS.map((check) => {
+    const count = rows.filter((row) =>
+      row.ruleFailures.some((failure) => failure.name === check.name),
+    ).length
+    return {
+      name: check.name.replace(/_/g, ' '),
+      raw: check.name,
+      group: check.group,
+      count,
+      rate: rows.length ? (count / rows.length) * 100 : 0,
+    }
+  })
+    .filter((entry) => entry.count > 0)
+    .sort((a, b) => b.count - a.count)
+
+  // Every second answer, so a long range stays plottable without thinning the
+  // pattern — the question is the shape of the cloud, not each individual dot.
+  const stride = Math.max(1, Math.ceil(rows.length / 400))
+  const latencyQuality = rows
+    .filter((_, index) => index % stride === 0)
+    .map((row) => ({
+      latency: row.latencyMs,
+      score: row.finalScore,
+      verdict: row.verdict,
+      id: row.id,
+    }))
+
+  const agreementPoints = rows
+    .filter((row) => row.humanScore !== null)
+    .map((row) => ({
+      judge: Math.round(((row.scores.correctness + row.scores.completeness) / 2) * 1000) / 10,
+      human: row.humanScore as number,
+      topic: row.topic,
+      id: row.id,
+    }))
+
+  const versions = ['v2.0', 'v2.1', 'v2.3', 'v2.3.1']
+    .map((version) => {
+      const versionRows = rows.filter((record) => record.version === version)
+      return {
+        version,
+        correctness: Math.round(mean(versionRows.map((r) => r.scores.correctness)) * 1000) / 10,
+        completeness: Math.round(mean(versionRows.map((r) => r.scores.completeness)) * 1000) / 10,
+        faithfulness: Math.round(mean(versionRows.map((r) => r.scores.faithfulness)) * 1000) / 10,
+        relevancy: Math.round(mean(versionRows.map((r) => r.scores.relevancy)) * 1000) / 10,
+        volume: versionRows.length,
+      }
+    })
+    .filter((entry) => entry.volume > 0)
+
+  const spark = {
+    volume: days.map((point) => ({ v: point.volume })),
+    passRate: days.map((point) => ({ v: point.passRate })),
+    score: days.map((point) => ({ v: point.finalScore })),
+    faithfulness: days.map((point) => ({ v: point.faithfulness })),
+    p95: days.map((point) => ({ v: point.p95 })),
+    cost: days.map((point) => ({ v: point.costUsd })),
+  }
+
+  return {
+    range,
+    lengthDays: rangeLength(range),
+    label: formatRange(range),
+    previousRange,
+    previousLabel: previousRange ? formatRange(previousRange) : null,
+    days,
+    rows,
+    summary,
+    previousSummary,
+    deploys,
+    degraded,
+    distribution,
+    topicMatrix,
+    failures,
+    latencyQuality,
+    agreementPoints,
+    versions,
+    spark,
+    insights: buildInsights({ rows, summary, topicMatrix, regression, recovery, range }),
+  }
+}
+
+// ---------------------------------------------------------------- insights
+
 /** Written from the data rather than hard-coded, so they stay true if it changes. */
-export function buildInsights(): Insight[] {
+function buildInsights({
+  rows,
+  summary,
+  topicMatrix,
+  regression,
+  recovery,
+  range,
+}: {
+  rows: EvalRecord[]
+  summary: Summary
+  topicMatrix: AnalyticsView['topicMatrix']
+  regression: Deploy | undefined
+  recovery: Deploy | undefined
+  range: Range
+}): Insight[] {
   const insights: Insight[] = []
 
-  const before = BY_DAY.slice(12, 18)
-  const during = BY_DAY.slice(18, 25)
-  const faithDrop =
-    mean(before.map((d) => d.faithfulness)) - mean(during.map((d) => d.faithfulness))
-  if (faithDrop > 3) {
+  if (regression) {
+    const windowLength = (recovery?.dayIndex ?? DAYS) - regression.dayIndex
+    const before = BY_DAY.slice(Math.max(range.startDay, regression.dayIndex - windowLength), regression.dayIndex)
+    const during = BY_DAY.slice(regression.dayIndex, recovery?.dayIndex ?? range.endDay + 1)
+    const faithDrop =
+      mean(before.map((d) => d.faithfulness)) - mean(during.map((d) => d.faithfulness))
+    if (before.length > 0 && faithDrop > 3) {
+      insights.push({
+        tone: 'critical',
+        headline: `Faithfulness fell ${faithDrop.toFixed(1)} points after the ${regression.label} deploy`,
+        detail: `Retrieval depth was cut from three articles to two to save cost. Answers began making claims the remaining context did not support. Restored in ${recovery?.label ?? 'a later release'} ${windowLength} days later — those ${windowLength} days are the cost of not having this chart.`,
+      })
+    }
+  }
+
+  const scored = topicMatrix.filter((row) => row.volume > 0)
+  if (scored.length > 0) {
+    const worst = [...scored].sort((a, b) => a.completeness - b.completeness)[0]
     insights.push({
-      tone: 'critical',
-      headline: `Faithfulness fell ${faithDrop.toFixed(1)} points after the v2.3 deploy`,
+      tone: 'warning',
+      headline: `${worst.topic} is the weakest topic, at ${worst.completeness.toFixed(1)} for completeness`,
       detail:
-        'Retrieval depth was cut from three articles to two to save cost. Answers began making claims the remaining context did not support. Restored in v2.3.1 seven days later — those seven days are the cost of not having this chart.',
+        'Security answers are correct but stop short of telling the user what to do next. That is a content problem in the knowledge base rather than a model problem, so prompt changes will not fix it.',
     })
   }
 
-  const worst = [...TOPIC_MATRIX].sort((a, b) => a.completeness - b.completeness)[0]
-  insights.push({
-    tone: 'warning',
-    headline: `${worst.topic} is the weakest topic, at ${worst.completeness.toFixed(1)} for completeness`,
-    detail:
-      'Security answers are correct but stop short of telling the user what to do next. That is a content problem in the knowledge base rather than a model problem, so prompt changes will not fix it.',
-  })
-
-  const slowShare =
-    (CURRENT.filter((row) => row.latencyMs > 3000).length / Math.max(1, CURRENT.length)) * 100
+  const slowShare = (rows.filter((row) => row.latencyMs > 3000).length / Math.max(1, rows.length)) * 100
   insights.push({
     tone: slowShare > 4 ? 'warning' : 'good',
     headline: `${slowShare.toFixed(1)}% of answers took longer than 3 seconds`,
@@ -468,10 +667,9 @@ export function buildInsights(): Insight[] {
   })
 
   insights.push({
-    tone: SUMMARY.humanAgreement > 85 ? 'good' : 'warning',
-    headline: `Judge and human reviewers agree ${SUMMARY.humanAgreement.toFixed(0)}% of the time`,
-    detail:
-      'Agreement is measured on whether both put the answer on the same side of the pass mark. High agreement is what justifies trusting the automated score between human reviews; if it fell below about 80% the weighting would need revisiting.',
+    tone: summary.humanAgreement > 85 ? 'good' : 'warning',
+    headline: `Judge and human reviewers agree ${summary.humanAgreement.toFixed(0)}% of the time`,
+    detail: `Measured on ${summary.reviewed} answers scored by both, and on whether they landed on the same side of the pass mark. High agreement is what justifies trusting the automated score between human reviews; below about 80% the weighting would need revisiting.`,
   })
 
   return insights

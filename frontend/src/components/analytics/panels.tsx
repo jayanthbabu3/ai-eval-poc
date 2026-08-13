@@ -1,15 +1,6 @@
 import { useMemo, useState } from 'react'
-import {
-  CURRENT,
-  RECORDS,
-  SPARK,
-  SUMMARY,
-  SUMMARY_PREVIOUS,
-  TOPIC_MATRIX,
-  TOPICS,
-  type EvalRecord,
-  type Insight,
-} from './data'
+import { RECORDS, TOPICS, formatDate, type EvalRecord, type Insight } from './data'
+import { useView } from './view'
 import {
   INK,
   SEQUENTIAL,
@@ -19,153 +10,7 @@ import {
   inkOnSequential,
   sequentialStep,
 } from './palette'
-import { Sparkline } from './charts'
 import { Modal } from '../ui/Modal'
-import { InfoPopover } from '../ui/InfoPopover'
-
-// ------------------------------------------------------------------- KPIs
-
-interface Kpi {
-  label: string
-  value: string
-  spark: { v: number }[]
-  colour: string
-  delta: number
-  /** Whether an increase is good — a rise in latency is not. */
-  higherIsBetter: boolean
-  unit?: string
-  note: string
-  /** Plain-English explanation behind the ⓘ. Nobody should have to guess "p95". */
-  info: string
-}
-
-function DeltaChip({ delta, higherIsBetter, unit = '' }: { delta: number; higherIsBetter: boolean; unit?: string }) {
-  if (Math.abs(delta) < 0.05) {
-    return <span className="tabular text-[13px] text-ink-faint">no change</span>
-  }
-  const improved = higherIsBetter ? delta > 0 : delta < 0
-  return (
-    <span
-      className="tabular text-[13px] font-semibold"
-      style={{ color: improved ? STATUS.good : STATUS.critical }}
-    >
-      {delta > 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}
-      {unit}
-    </span>
-  )
-}
-
-export function KpiStrip() {
-  const kpis: Kpi[] = [
-    {
-      label: 'Answers evaluated',
-      value: SUMMARY.count.toLocaleString(),
-      spark: SPARK.volume,
-      colour: SERIES.correctness,
-      delta: SUMMARY.count - SUMMARY_PREVIOUS.count,
-      higherIsBetter: true,
-      note: 'last 7 days',
-      info: 'How many answers the assistant produced and we scored in the last seven days. The comparison is against the seven days before that, so a rise means more usage rather than better quality.',
-    },
-    {
-      label: 'Pass rate',
-      value: `${SUMMARY.passRate.toFixed(1)}%`,
-      spark: SPARK.passRate,
-      colour: SERIES.faithfulness,
-      delta: SUMMARY.passRate - SUMMARY_PREVIOUS.passRate,
-      higherIsBetter: true,
-      unit: 'pp',
-      note: 'scored 70 or above',
-      info: 'The share of answers that reached our pass mark of 70 out of 100. "pp" means percentage points — a move from 96% to 98% is +2pp, not +2%.',
-    },
-    {
-      label: 'Average score',
-      value: SUMMARY.avgScore.toFixed(1),
-      spark: SPARK.score,
-      colour: SERIES.correctness,
-      delta: SUMMARY.avgScore - SUMMARY_PREVIOUS.avgScore,
-      higherIsBetter: true,
-      note: 'out of 100',
-      info: 'The mean combined score across every answer: rule checks 30%, the AI judge 40%, human review 30%. Useful as a headline, but an average hides shape — the distribution chart below shows whether 90 means "mostly 90".',
-    },
-    {
-      label: 'Hallucination rate',
-      value: `${SUMMARY.hallucinationRate.toFixed(1)}%`,
-      spark: SPARK.faithfulness,
-      colour: SERIES.completeness,
-      delta: SUMMARY.hallucinationRate - SUMMARY_PREVIOUS.hallucinationRate,
-      higherIsBetter: false,
-      unit: 'pp',
-      note: 'faithfulness under 0.70',
-      info: 'The share of answers that made a claim the retrieved documents did not support — in other words, the assistant made something up. Measured as faithfulness scoring below 0.70. This is the number to watch most closely: a made-up IT policy sends staff down the wrong path.',
-    },
-    {
-      label: 'p95 latency',
-      value: `${(SUMMARY.p95 / 1000).toFixed(2)}s`,
-      spark: SPARK.p95,
-      colour: SERIES.relevancy,
-      delta: (SUMMARY.p95 - SUMMARY_PREVIOUS.p95) / 1000,
-      higherIsBetter: false,
-      unit: 's',
-      note: '19 in 20 are faster',
-      info: 'p95 means the 95th percentile: 95 out of every 100 answers came back faster than this, and 5 were slower. We show it instead of the average because an average is dragged down by the fast majority and hides the slow tail — and the slow answers are the ones users actually notice and complain about.',
-    },
-    {
-      label: 'Spend',
-      value: `$${SUMMARY.cost.toFixed(2)}`,
-      spark: SPARK.cost,
-      colour: SERIES.correctness,
-      delta: SUMMARY.cost - SUMMARY_PREVIOUS.cost,
-      higherIsBetter: false,
-      note: 'judge + assistant',
-      info: 'Estimated spend on model calls over the period, covering both the assistant writing answers and the judge scoring them. The judge is usually the larger share, because it makes several calls per answer.',
-    },
-    {
-      label: 'Security blocks',
-      value: String(SUMMARY.blocked),
-      spark: SPARK.passRate,
-      colour: STATUS.critical,
-      delta: SUMMARY.blocked - SUMMARY_PREVIOUS.blocked,
-      higherIsBetter: false,
-      note: 'released regardless is never an option',
-      info: 'Answers stopped by a failed security check — a leaked credential, exposed personal data, or obeying an instruction hidden in a user question. These are blocked outright regardless of how well they scored elsewhere, because a good answer does not cancel out a data leak.',
-    },
-    {
-      label: 'Judge–human agreement',
-      value: `${SUMMARY.humanAgreement.toFixed(0)}%`,
-      spark: SPARK.score,
-      colour: SERIES.faithfulness,
-      delta: SUMMARY.humanAgreement - SUMMARY_PREVIOUS.humanAgreement,
-      higherIsBetter: true,
-      unit: 'pp',
-      note: `${SUMMARY.reviewed} answers reviewed`,
-      info: 'How often the AI judge and a human reviewer put an answer on the same side of the pass mark. This is the number that justifies trusting the automated scores between human reviews. If it dropped below about 80%, the judge would need recalibrating before anyone relied on it.',
-    },
-  ]
-
-  return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      {kpis.map((kpi) => (
-        <div key={kpi.label} className="rounded-lg border border-line bg-surface p-3">
-          <div className="flex items-start justify-between gap-2">
-            <p className="text-[13px] font-medium uppercase tracking-wider text-ink-muted">
-              {kpi.label}
-            </p>
-            <InfoPopover title={kpi.label}>{kpi.info}</InfoPopover>
-          </div>
-          <div className="mt-1 flex items-baseline justify-between gap-2">
-            <p className="tabular text-[26px] font-semibold text-ink">{kpi.value}</p>
-            <DeltaChip delta={kpi.delta} higherIsBetter={kpi.higherIsBetter} unit={kpi.unit} />
-          </div>
-          <div className="mt-1.5">
-            <Sparkline data={kpi.spark} colour={kpi.colour} />
-          </div>
-          <p className="mt-1 text-[12px] text-ink-faint">{kpi.note}</p>
-        </div>
-      ))}
-    </div>
-  )
-}
 
 // ---------------------------------------------------------------- heatmap
 
@@ -175,6 +20,7 @@ export function KpiStrip() {
  * documented relief for the two hues that sit under 3:1 on white.
  */
 export function TopicHeatmap() {
+  const { topicMatrix } = useView()
   const columns = SERIES_ORDER
 
   return (
@@ -201,7 +47,7 @@ export function TopicHeatmap() {
             </tr>
           </thead>
           <tbody>
-            {TOPIC_MATRIX.map((row) => (
+            {topicMatrix.map((row) => (
               <tr key={row.topic}>
                 <th scope="row" className="px-2 py-1 text-left text-[14px] font-medium text-ink">
                   {row.topic}
@@ -256,19 +102,27 @@ export function Insights({ insights }: { insights: Insight[] }) {
     good: { border: 'border-ok/40', bg: 'bg-ok-soft', text: STATUS.good, label: 'Healthy' },
   }
 
+  // A grid rather than a stack: four full-width banners look like error messages,
+  // four columns look like a briefing.
   return (
-    <ol className="space-y-2">
+    <ol className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
       {insights.map((insight) => {
         const style = tone[insight.tone]
         return (
-          <li key={insight.headline} className={`rounded-lg border p-3 ${style.border} ${style.bg}`}>
-            <p className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: style.text }}>
+          <li
+            key={insight.headline}
+            className={`flex flex-col rounded-xl border p-3 ${style.border} ${style.bg}`}
+          >
+            <p
+              className="text-[11px] font-semibold uppercase tracking-[0.12em]"
+              style={{ color: style.text }}
+            >
               {style.label}
             </p>
-            <p className="mt-0.5 text-[15px] font-semibold text-ink">{insight.headline}</p>
-            <p className="mt-1 max-w-[80ch] text-[14px] leading-relaxed text-ink-muted">
-              {insight.detail}
+            <p className="mt-1 text-[15px] font-semibold leading-snug text-ink">
+              {insight.headline}
             </p>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-ink-muted">{insight.detail}</p>
           </li>
         )
       })}
@@ -291,12 +145,13 @@ export function EvaluationsTable({
   filterCheck: string | null
   onClearFilter: () => void
 }) {
+  const view = useView()
   const [topic, setTopic] = useState<string>('All')
   const [verdict, setVerdict] = useState<string>('All')
   const [selected, setSelected] = useState<EvalRecord | null>(null)
 
   const rows = useMemo(() => {
-    return CURRENT.filter((record) => {
+    return view.rows.filter((record) => {
       if (topic !== 'All' && record.topic !== topic) return false
       if (verdict !== 'All' && record.verdict !== verdict) return false
       if (filterCheck && !record.ruleFailures.some((f) => f.name === filterCheck)) return false
@@ -305,7 +160,7 @@ export function EvaluationsTable({
       .slice()
       .sort((a, b) => a.finalScore - b.finalScore)
       .slice(0, 40)
-  }, [topic, verdict, filterCheck])
+  }, [view.rows, topic, verdict, filterCheck])
 
   return (
     <div className="space-y-3">
@@ -345,14 +200,17 @@ export function EvaluationsTable({
         )}
 
         <p className="tabular ml-auto text-[13px] text-ink-faint">
-          worst {rows.length} of {CURRENT.length}
+          worst {rows.length} of {view.rows.length.toLocaleString()} in {view.label}
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-line">
+      {/* Bounded height with a sticky header: an unbounded 40-row table makes the
+          tile three times taller than the one beside it and leaves a white void. */}
+      <div className="max-h-[420px] overflow-auto rounded-lg border border-line">
         <table className="w-full min-w-[900px] border-collapse text-left text-[14px]">
-          <thead>
+          <thead className="sticky top-0 z-10">
             <tr className="border-b border-line bg-raised text-[12px] uppercase tracking-wider text-ink-muted">
+              <th scope="col" className="px-3 py-2 font-medium">Date</th>
               <th scope="col" className="px-3 py-2 font-medium">Question</th>
               <th scope="col" className="px-3 py-2 font-medium">Topic</th>
               <th scope="col" className="px-3 py-2 font-medium">Ver</th>
@@ -369,6 +227,9 @@ export function EvaluationsTable({
                 onClick={() => setSelected(record)}
                 className="cursor-pointer border-t border-line transition-colors duration-200 hover:bg-raised"
               >
+                <td className="tabular whitespace-nowrap px-3 py-2 text-ink-muted">
+                  {formatDate(record.day)}
+                </td>
                 <td className="max-w-72 truncate px-3 py-2 text-ink" title={record.question}>
                   {record.question}
                 </td>
@@ -393,7 +254,7 @@ export function EvaluationsTable({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-ink-muted">
+                <td colSpan={8} className="px-3 py-8 text-center text-ink-muted">
                   Nothing matches those filters.
                 </td>
               </tr>
@@ -438,6 +299,7 @@ function TraceModal({ record, onClose }: { record: EvalRecord | null; onClose: (
       <div className="space-y-4">
         <div className="flex flex-wrap gap-1.5 text-[13px]">
           {[
+            formatDate(record.day),
             `${record.topic}`,
             `${record.version}`,
             `${record.latencyMs} ms`,
